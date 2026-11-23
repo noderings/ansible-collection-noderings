@@ -1,0 +1,39 @@
+---
+requires_ansible: ">=2.16.0"
+action_groups:
+  noderings:
+    - billing_info
+    - distro_info
+    - dns_geo_record
+    - dns_record
+    - dns_record_info
+    - dns_zone
+    - dns_zone_info
+    - environment_variable
+    - firewall_address_group
+    - firewall_ruleset
+    - firewall_ruleset_info
+    - game_server
+    - game_server_backup
+    - game_server_database
+    - game_server_game_info
+    - game_server_info
+    - group
+    - iam_info
+    - instant_app_info
+    - marketplace_addon_info
+    - marketplace_offer_info
+    - marketplace_plan_info
+    - marketplace_provider_info
+    - marketplace_region_info
+    - organization_info
+    - role
+    - role_assignment
+    - secret
+    - ssh_key
+    - ssh_key_info
+    - virtual_machine
+    - virtual_machine_additional_ip
+    - virtual_machine_backup
+    - virtual_machine_info
+    - virtual_machine_snapshot

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.test }} (ansible-core ${{ matrix.ansible }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test: [sanity, units]
+        ansible: ["stable-2.16", "stable-2.18", "stable-2.20", "devel"]
+        include:
+          - ansible: stable-2.16
+            python: "3.12"
+          - ansible: stable-2.18
+            python: "3.12"
+          - ansible: stable-2.20
+            python: "3.13"
+          - ansible: devel
+            python: "3.13"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ansible_collections/noderings/cloud
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install ansible-core
+        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz
+      - name: ansible-test ${{ matrix.test }}
+        working-directory: ansible_collections/noderings/cloud
+        run: ansible-test ${{ matrix.test }} --venv --python ${{ matrix.python }} -v --color

@@ -1,0 +1,281 @@
+---
+# Runs against the real NodeRings API. Needs NODERINGS_TOKEN, and for DNS a parent domain in
+# noderings_test_domain (default example.com). Creates and deletes test resources; DNS, firewall and IAM are free.
+- ansible.builtin.set_fact:
+    sfx: "{{ lookup('ansible.builtin.password', '/dev/null', chars=['ascii_lowercase', 'digits'], length=8) }}"
+- noderings.cloud.firewall_address_group:
+    name: "ans-office-{{ sfx }}"
+    cidrs:
+    - 203.0.113.0/24
+    - 2001:db8:10::/48
+    - 198.51.100.7
+  register: ag
+- ansible.builtin.debug: var=ag.address_group
+- noderings.cloud.firewall_address_group:
+    name: "ans-office-{{ sfx }}"
+    cidrs:
+    - 198.51.100.7/32
+    - 2001:db8:10::/48
+    - 203.0.113.0/24
+  register: ag2
+- ansible.builtin.assert:
+    that:
+    - ag.changed
+    - not ag2.changed
+- noderings.cloud.firewall_address_group:
+    name: "ans-office-{{ sfx }}"
+    cidrs:
+    - 203.0.113.0/24
+  register: ag3
+  diff: true
+- ansible.builtin.assert:
+    that:
+    - ag3.changed
+    - ag3.address_group.cidrs == ['203.0.113.0/24']
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    rules:
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '22'
+      source:
+        address_groups:
+        - "ans-office-{{ sfx }}"
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '80'
+      source:
+        cidrs:
+        - 0.0.0.0/0
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '443'
+      source:
+        cidrs:
+        - ::/0
+    - direction: ingress
+      action: accept
+      protocol: icmp
+      source:
+        cidrs:
+        - 0.0.0.0/0
+    - direction: egress
+      action: accept
+      protocol: any
+      destination:
+        cidrs:
+        - 0.0.0.0/0
+  register: rs
+- ansible.builtin.debug: "msg=\"{{ rs.ruleset.rules | map(attribute='destination_ports') | list }} {{ rs.ruleset.rules | map(attribute='protocol') | list }}\""
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    rules:
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '22'
+      source:
+        address_groups:
+        - "ans-office-{{ sfx }}"
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '80'
+      source:
+        cidrs:
+        - 0.0.0.0/0
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '443'
+      source:
+        cidrs:
+        - ::/0
+    - direction: ingress
+      action: accept
+      protocol: icmp
+      source:
+        cidrs:
+        - 0.0.0.0/0
+    - direction: egress
+      action: accept
+      protocol: any
+      destination:
+        cidrs:
+        - 0.0.0.0/0
+  register: rs2
+- ansible.builtin.assert:
+    that:
+    - rs.changed
+    - not rs2.changed
+    - rs.ruleset.rules | length == 5
+- ansible.builtin.set_fact:
+    ids_before: "{{ rs.ruleset.rules | map(attribute='id') | list }}"
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    rules:
+    - direction: ingress
+      action: accept
+      protocol: icmp
+      source:
+        cidrs:
+        - 0.0.0.0/0
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '443'
+      source:
+        cidrs:
+        - ::/0
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: 8000-8100
+      source:
+        cidrs:
+        - 10.0.0.0/8
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '2222'
+      source:
+        address_groups:
+        - "ans-office-{{ sfx }}"
+    - direction: ingress
+      action: drop
+      protocol: any
+      source:
+        cidrs:
+        - 0.0.0.0/0
+  register: rs3
+  diff: true
+- ansible.builtin.debug: "msg=\"{{ rs3.ruleset.rules | map(attribute='destination_ports') | list }} {{ rs3.ruleset.rules | map(attribute='id') | list }} before={{ ids_before }}\""
+- ansible.builtin.assert:
+    that:
+    - rs3.changed
+    - rs3.ruleset.rules | map(attribute='destination_ports') | list == [None, '443', '8000-8100', '2222', None]
+    - rs3.ruleset.rules[0].id == ids_before[3]
+    - rs3.ruleset.rules[1].id == ids_before[2]
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    rules:
+    - direction: ingress
+      action: accept
+      protocol: icmp
+      source:
+        cidrs:
+        - 0.0.0.0/0
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '443'
+      source:
+        cidrs:
+        - ::/0
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: 8000-8100
+      source:
+        cidrs:
+        - 10.0.0.0/8
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: '2222'
+      source:
+        address_groups:
+        - "ans-office-{{ sfx }}"
+    - direction: ingress
+      action: drop
+      protocol: any
+      source:
+        cidrs:
+        - 0.0.0.0/0
+  register: rs4
+- ansible.builtin.assert:
+    that:
+    - not rs4.changed
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    rules:
+    - direction: ingress
+      action: accept
+      protocol: icmp
+      destination_ports: '80'
+      source:
+        cidrs:
+        - 0.0.0.0/0
+  register: bad1
+  ignore_errors: true
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    rules:
+    - direction: ingress
+      action: accept
+      protocol: tcp
+      destination_ports: 80,443
+      source:
+        cidrs:
+        - 0.0.0.0/0
+  register: bad2
+  ignore_errors: true
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    rules:
+    - direction: ingress
+      action: accept
+      source:
+        cidrs:
+        - 0.0.0.0/0
+        - 10.0.0.0/8
+  register: bad3
+  ignore_errors: true
+- ansible.builtin.assert:
+    that:
+    - bad1.failed
+    - bad2.failed
+    - bad3.failed
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+  register: norules
+- ansible.builtin.assert:
+    that:
+    - not norules.changed
+    - norules.ruleset.rules | length == 5
+- noderings.cloud.firewall_ruleset_info:
+    name: "ans-web-{{ sfx }}"
+  register: info
+- ansible.builtin.assert:
+    that:
+    - info.rulesets | length == 1
+    - info.rulesets[0].rules | length == 5
+    - info.address_groups | selectattr('name','equalto','ans-office-' + sfx) | list | length == 1
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    rules: []
+  register: empty
+- ansible.builtin.assert:
+    that:
+    - empty.changed
+    - empty.ruleset.rules == []
+- noderings.cloud.firewall_ruleset:
+    name: "ans-web-{{ sfx }}"
+    state: absent
+  register: del
+- noderings.cloud.firewall_address_group:
+    name: "ans-office-{{ sfx }}"
+    state: absent
+  register: agdel
+- noderings.cloud.firewall_address_group:
+    name: "ans-office-{{ sfx }}"
+    state: absent
+  register: agdel2
+- ansible.builtin.assert:
+    that:
+    - del.changed
+    - agdel.changed
+    - not agdel2.changed

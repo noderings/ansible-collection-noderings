@@ -1,0 +1,7 @@
+tests/output/
+*.tar.gz
+__pycache__/
+*.pyc
+.venv/
+*.retry
+tests/integration/integration_config.yml
