@@ -1,0 +1,32 @@
+---
+namespace: noderings
+name: cloud
+version: 0.1.0
+readme: README.md
+authors:
+  - Shaygun <partners@noderings.com>
+description: >-
+  Manage NodeRings virtual machines, DNS, firewalls, IAM and game servers,
+  and build a dynamic inventory from your NodeRings servers.
+license:
+  - GPL-3.0-or-later
+tags:
+  - cloud
+  - noderings
+  - vps
+  - dns
+  - firewall
+  - infrastructure
+  - inventory
+dependencies: {}
+repository: https://github.com/noderings/ansible-collection-noderings
+documentation: https://github.com/noderings/ansible-collection-noderings#readme
+homepage: https://noderings.com
+issues: https://github.com/noderings/ansible-collection-noderings/issues
+build_ignore:
+  - .github
+  - .gitignore
+  - tests/output
+  - "*.tar.gz"
+  - .venv
+  - examples/*.retry
