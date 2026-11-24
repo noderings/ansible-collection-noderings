@@ -208,6 +208,25 @@ Then run them:
 ansible-test integration dns firewall iam --allow-unsupported --venv
 ```
 
+## Support
+
+Open an issue at https://github.com/noderings/ansible-collection-noderings/issues for bugs and feature requests.
+For questions about your NodeRings account or servers, contact NodeRings support from the console.
+
+## Release notes
+
+See [CHANGELOG.rst](CHANGELOG.rst).
+
+## Contributing and code of conduct
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). This project follows the
+[Ansible Community Code of Conduct](https://docs.ansible.com/ansible/devel/community/code_of_conduct.html).
+
+## More information
+
+- [Using Ansible collections](https://docs.ansible.com/ansible/latest/collections_guide/index.html)
+- [NodeRings](https://noderings.com) and the [NodeRings documentation](https://docs.noderings.com)
+
 ## License
 
 GNU General Public License v3.0 or later. See [COPYING](COPYING).

@@ -27,7 +27,9 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" noderings-cloud-*.tar.gz --title "${GITHUB_REF_NAME}" --notes-file CHANGELOG.md
+        run: |
+          notes="Release notes are in CHANGELOG.rst: https://github.com/noderings/ansible-collection-noderings/blob/${GITHUB_REF_NAME}/CHANGELOG.rst"
+          gh release create "${GITHUB_REF_NAME}" noderings-cloud-*.tar.gz --title "${GITHUB_REF_NAME}" --notes "${notes}"
       - name: Publish to Ansible Galaxy
         env:
           GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
