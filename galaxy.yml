@@ -6,7 +6,8 @@ readme: README.md
 authors:
   - Shaygun <partners@noderings.com>
 description: >-
-  Manage NodeRings virtual machines, DNS, firewalls, IAM and game servers,
+  Order and manage resources on the NodeRings infrastructure marketplace
+  (compute, DNS, firewalls, IAM, game servers and more),
   and build a dynamic inventory from your NodeRings servers.
 license:
   - GPL-3.0-or-later
