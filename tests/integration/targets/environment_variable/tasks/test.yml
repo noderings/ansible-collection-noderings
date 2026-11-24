@@ -1,0 +1,31 @@
+---
+- ansible.builtin.set_fact:
+    env_key: "{{ noderings_prefix | upper | replace('-', '_') }}"
+- name: Create (check mode)
+  noderings.cloud.environment_variable: {key: "{{ env_key }}", value: one}
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that: result is changed
+- name: Create
+  noderings.cloud.environment_variable: {key: "{{ env_key }}", value: one}
+  register: created
+- noderings.cloud.environment_variable: {key: "{{ env_key }}", value: one}
+  register: same
+- name: Change the value
+  noderings.cloud.environment_variable: {key: "{{ env_key }}", value: two}
+  register: changed
+- ansible.builtin.assert:
+    that:
+      - "created is changed"
+      - "same is not changed"
+      - "changed is changed"
+- name: Delete
+  noderings.cloud.environment_variable: {key: "{{ env_key }}", state: absent}
+  register: deleted
+- noderings.cloud.environment_variable: {key: "{{ env_key }}", state: absent}
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "deleted is changed"
+      - "deleted_again is not changed"

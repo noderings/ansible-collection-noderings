@@ -1,0 +1,13 @@
+---
+- name: Game server targets need a game-server plan
+  ansible.builtin.meta: end_host
+  when: noderings_test_game_plan_id is not defined
+
+- name: Order the test game server
+  noderings.cloud.game_server:
+    name: "{{ noderings_prefix }}"
+    plan_id: "{{ noderings_test_game_plan_id }}"
+    game: "{{ noderings_test_game | default('Minecraft') }}"
+    accept_eula: true
+    state: running
+  register: gs

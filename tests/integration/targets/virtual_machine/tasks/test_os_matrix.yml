@@ -1,0 +1,29 @@
+---
+# Opt-in (noderings_test_os_matrix: true): reinstall the VM with every distro and
+# check each guest over SSH. About an hour for all distros.
+- name: Every distro
+  noderings.cloud.distro_info:
+  register: distros
+- ansible.builtin.set_fact:
+    matrix: "{{ noderings_test_os_matrix_distros | default(distros.distros | map(attribute='distro') | list) }}"
+    matrix_results: []
+- name: Reinstall and check each distro
+  ansible.builtin.include_tasks: test_os_matrix_distro.yml
+  loop: "{{ matrix }}"
+  loop_control:
+    loop_var: distro
+- name: Results
+  ansible.builtin.debug:
+    msg: >-
+      {{ item.distro }}: {{ 'PASS' if item.passed else 'FAIL' }}
+      os={{ item.guest.os | default('-') }} cloud-init={{ item.guest.cloudinit | default('-') }}
+      hostname={{ item.guest.hostname | default('-') }} ipv4={{ item.guest.net4 | default('-') }}
+      ipv6={{ item.guest.net6 | default('-') }} dns={{ item.guest.dns | default('-') }}
+      {{ item.error | default('') }}
+  loop: "{{ matrix_results }}"
+  loop_control:
+    label: "{{ item.distro }}"
+- name: Every distro passed
+  ansible.builtin.assert:
+    that: matrix_results | rejectattr('passed') | list == []
+    fail_msg: "Failed: {{ matrix_results | rejectattr('passed') | map(attribute='distro') | list }}"

@@ -1,0 +1,54 @@
+---
+- name: Create (check mode)
+  noderings.cloud.role: {name: "{{ noderings_prefix }}", description: test, permissions: [ListVirtualMachines, GetVirtualMachine]}
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that: result is changed
+- name: Create
+  noderings.cloud.role: {name: "{{ noderings_prefix }}", description: test, permissions: [ListVirtualMachines, GetVirtualMachine]}
+  register: created
+- noderings.cloud.role: {name: "{{ noderings_prefix }}", description: test, permissions: [GetVirtualMachine, ListVirtualMachines]}
+  register: same
+- ansible.builtin.assert:
+    that:
+      - "created is changed"
+      - "same is not changed"
+      - "created.role.permissions == ['GetVirtualMachine', 'ListVirtualMachines']"
+- name: Add a permission without removing others, and change the description
+  noderings.cloud.role: {name: "{{ noderings_prefix }}", description: changed, permissions: [ListDnsZones], purge_permissions: false}
+  register: added
+  diff: true
+- ansible.builtin.assert:
+    that:
+      - "added is changed"
+      - "added.role.permissions | length == 3"
+      - "added.role.description == 'changed'"
+- name: Replace the permissions
+  noderings.cloud.role: {name: "{{ noderings_prefix }}", permissions: [ListDnsZones]}
+  register: replaced
+- ansible.builtin.assert:
+    that:
+      - "replaced is changed"
+      - "replaced.role.permissions == ['ListDnsZones']"
+- name: A built-in role cannot be changed (expected to fail)
+  noderings.cloud.role: {name: Viewer, description: x}
+  register: builtin
+  ignore_errors: true
+- name: An unknown permission (expected to fail)
+  noderings.cloud.role: {name: "{{ noderings_prefix }}", permissions: [NoSuchPermission]}
+  register: unknown
+  ignore_errors: true
+- ansible.builtin.assert:
+    that:
+      - "builtin is failed"
+      - "unknown is failed"
+- name: Delete
+  noderings.cloud.role: {name: "{{ noderings_prefix }}", state: absent}
+  register: deleted
+- noderings.cloud.role: {name: "{{ noderings_prefix }}", state: absent}
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "deleted is changed"
+      - "deleted_again is not changed"

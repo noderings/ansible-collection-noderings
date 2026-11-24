@@ -1,0 +1,17 @@
+---
+- name: By name
+  noderings.cloud.firewall_ruleset_info:
+    name: "{{ noderings_prefix }}"
+  register: by_name
+- name: Unattached rulesets, without rules
+  noderings.cloud.firewall_ruleset_info:
+    attachment: unattached
+    include_rules: false
+  register: unattached
+- ansible.builtin.assert:
+    that:
+      - by_name.rulesets | length == 1
+      - by_name.rulesets[0].rules | length == 1
+      - by_name.address_groups | selectattr('name', 'equalto', noderings_prefix ~ '-office') | list | length == 1
+      - noderings_prefix in (unattached.rulesets | map(attribute='name') | list)
+      - unattached.rulesets | selectattr('rules', 'defined') | list == []

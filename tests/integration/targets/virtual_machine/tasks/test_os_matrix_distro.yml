@@ -1,0 +1,27 @@
+---
+# One distro of the OS matrix. Records the result instead of failing, so every
+# distro is tried; test_os_matrix.yml fails at the end if any did not pass.
+- name: "{{ distro }}"
+  block:
+    - name: "Reinstall with {{ distro }}"
+      noderings.cloud.virtual_machine:
+        hostname: "{{ noderings_prefix }}"
+        distro: "{{ distro }}"
+        state: reinstalled
+        ssh_keys: ["{{ noderings_prefix }}"]
+    - name: "Check {{ distro }}"
+      ansible.builtin.include_role:
+        name: setup_ssh_keypair
+        tasks_from: guest_check
+      vars:
+        guest_ip: "{{ vm.virtual_machine.ipv4 }}"
+        expected_os: "{{ distro | regex_replace('_(\\d+)_(\\d+)$', '-\\1.\\2') | regex_replace('_(\\d+)$', '-\\1') }}"
+        expected_hostname: "{{ noderings_prefix }}"
+    - ansible.builtin.set_fact:
+        matrix_results: "{{ matrix_results + [{'distro': distro, 'passed': true, 'guest': guest}] }}"
+  rescue:
+    - ansible.builtin.set_fact:
+        matrix_results: >-
+          {{ matrix_results + [{'distro': distro, 'passed': false,
+             'guest': guest | default({}) if (guest | default({})).os | default('') is search(distro.split('_')[0]) else {},
+             'error': (ansible_failed_result.msg | default('failed'))[:300]}] }}

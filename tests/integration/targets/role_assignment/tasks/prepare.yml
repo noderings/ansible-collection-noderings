@@ -1,0 +1,3 @@
+---
+- noderings.cloud.role: {name: "{{ noderings_prefix }}", permissions: [ListVirtualMachines]}
+- noderings.cloud.group: {name: "{{ noderings_prefix }}"}

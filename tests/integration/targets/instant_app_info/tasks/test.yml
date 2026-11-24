@@ -1,0 +1,17 @@
+---
+- name: Every instant app
+  noderings.cloud.instant_app_info:
+  register: result
+- name: One app by slug
+  noderings.cloud.instant_app_info:
+    slug: "{{ result.instant_apps[0].slug }}"
+  register: one
+  when: result.instant_apps | length > 0
+- ansible.builtin.assert:
+    that: one is skipped or (one.instant_apps | length == 1 and one.instant_apps[0].slug == result.instant_apps[0].slug)
+- name: A search with no match
+  noderings.cloud.instant_app_info:
+    query: no-such-app-{{ noderings_prefix }}
+  register: no_match
+- ansible.builtin.assert:
+    that: no_match.instant_apps == []

@@ -1,0 +1,9 @@
+---
+- noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}-office"
+    cidrs: [203.0.113.0/24]
+
+- noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    rules:
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "22", source: {address_groups: ["{{ noderings_prefix }}-office"]}}

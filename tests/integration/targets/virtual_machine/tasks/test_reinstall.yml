@@ -1,0 +1,44 @@
+---
+- ansible.builtin.set_fact:
+    reinstall_distro: "{{ noderings_test_vm_reinstall_distro | default('debian_12') }}"
+- name: Machine ID before
+  ansible.builtin.include_role:
+    name: setup_ssh_keypair
+    tasks_from: guest_check
+  vars:
+    guest_ip: "{{ vm.virtual_machine.ipv4 }}"
+    expected_os: "{{ noderings_test_vm_distro | regex_replace('_(\\d+)_(\\d+)$', '-\\1.\\2') | regex_replace('_(\\d+)$', '-\\1') }}"
+    expected_hostname: "{{ noderings_prefix }}"
+- ansible.builtin.set_fact:
+    machine_before: "{{ guest.machine }}"
+- name: Reinstall with another distro
+  noderings.cloud.virtual_machine:
+    hostname: "{{ noderings_prefix }}"
+    distro: "{{ reinstall_distro }}"
+    allow_reinstall: true
+    ssh_keys: ["{{ noderings_prefix }}"]
+  register: reinstalled
+- ansible.builtin.assert:
+    that:
+      - reinstalled is changed
+      - reinstalled.virtual_machine.distro == reinstall_distro
+      - reinstalled.virtual_machine.id == vm.virtual_machine.id
+- name: The guest really runs the new distro
+  ansible.builtin.include_role:
+    name: setup_ssh_keypair
+    tasks_from: guest_check
+  vars:
+    guest_ip: "{{ vm.virtual_machine.ipv4 }}"
+    expected_os: "{{ reinstall_distro | regex_replace('_(\\d+)_(\\d+)$', '-\\1.\\2') | regex_replace('_(\\d+)$', '-\\1') }}"
+    expected_hostname: "{{ noderings_prefix }}"
+- ansible.builtin.assert:
+    that: guest.machine != machine_before
+    fail_msg: The machine ID did not change, so the guest was not reinstalled.
+- name: The same distro again changes nothing
+  noderings.cloud.virtual_machine:
+    hostname: "{{ noderings_prefix }}"
+    distro: "{{ reinstall_distro }}"
+    allow_reinstall: true
+  register: same
+- ansible.builtin.assert:
+    that: same is not changed

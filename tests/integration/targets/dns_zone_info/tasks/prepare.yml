@@ -1,0 +1,5 @@
+---
+- ansible.builtin.set_fact:
+    zone: "{{ noderings_prefix }}.{{ noderings_test_domain | default('example.com') }}"
+- noderings.cloud.dns_zone:
+    name: "{{ zone }}"

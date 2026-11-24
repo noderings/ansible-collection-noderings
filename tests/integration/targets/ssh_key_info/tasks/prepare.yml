@@ -1,0 +1,5 @@
+---
+- noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    public_key: "{{ noderings_test_ssh_public_key }}"
+  register: key

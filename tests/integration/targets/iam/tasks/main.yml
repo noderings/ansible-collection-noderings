@@ -1,9 +1,0 @@
----
-# Settings come from tests/integration/integration_config.yml (see the README).
-- name: Run with the API token from noderings_api_token
-  module_defaults:
-    group/noderings.cloud.noderings:
-      api_token: "{{ noderings_api_token }}"
-  block:
-    - name: Tests
-      ansible.builtin.include_tasks: tests.yml

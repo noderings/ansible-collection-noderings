@@ -1,0 +1,95 @@
+---
+- name: A record (check mode)
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: www, type: A, ttl: 300, values: [203.0.113.10, 203.0.113.11]}
+  check_mode: true
+  register: result
+- noderings.cloud.dns_record_info: {zone: "{{ zone }}", name: www, type: A}
+  register: info
+- ansible.builtin.assert:
+    that:
+      - "result is changed"
+      - "info.records == []"
+
+- name: A record
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: www, type: A, ttl: 300, values: [203.0.113.10, 203.0.113.11]}
+  register: created
+- name: Same values in another order, written as a fully qualified name
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: "www.{{ zone }}", type: A, ttl: 300, values: [203.0.113.11, 203.0.113.10]}
+  register: same
+- ansible.builtin.assert:
+    that:
+      - "created is changed"
+      - "same is not changed"
+      - "created.record['values'] | sort == ['203.0.113.10', '203.0.113.11']"
+
+- name: Change TTL and values
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: www, type: A, ttl: 600, values: [203.0.113.12]}
+  register: changed
+  diff: true
+- ansible.builtin.assert:
+    that:
+      - "changed is changed"
+      - "changed.record.ttl == 600"
+      - "changed.record['values'] == ['203.0.113.12']"
+
+- name: MX at the apex, with and without trailing dots
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: "@", type: MX, values: ["10 mail.example.com", "20 mx2.example.com."]}
+  register: mx
+- noderings.cloud.dns_record: {zone: "{{ zone }}", name: "@", type: MX, values: ["10 mail.example.com.", "20 mx2.example.com."]}
+  register: mx_same
+- ansible.builtin.assert:
+    that:
+      - "mx is changed"
+      - "mx_same is not changed"
+
+- name: Long and quoted TXT values
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: "@", type: TXT, values: ["{{ 'x' * 300 }}", 'v=spf1 include:"q" -all']}
+  register: txt
+- noderings.cloud.dns_record: {zone: "{{ zone }}", name: "@", type: TXT, values: ['v=spf1 include:"q" -all', "{{ 'x' * 300 }}"]}
+  register: txt_same
+- ansible.builtin.assert:
+    that:
+      - "txt is changed"
+      - "txt_same is not changed"
+      - "txt.record['values'] | length == 2"
+
+- name: Append one value
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: "@", type: TXT, values: [extra], append: true}
+  register: appended
+- name: Remove only that value
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: "@", type: TXT, values: [extra], append: true, state: absent}
+  register: removed_one
+- ansible.builtin.assert:
+    that:
+      - appended is changed
+      - "appended.record['values'] | length == 3"
+      - removed_one is changed
+      - "removed_one.record['values'] | length == 2"
+
+- name: A CNAME takes one value (expected to fail)
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: bad, type: CNAME, values: [a.example.com., b.example.com.]}
+  register: two_cnames
+  ignore_errors: true
+- name: An A record needs an IPv4 address (expected to fail)
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: bad, type: A, values: ["2001:db8::1"]}
+  register: bad_a
+  ignore_errors: true
+- name: An unknown zone (expected to fail)
+  noderings.cloud.dns_record: {zone: "missing-{{ zone }}", name: www, type: A, values: [203.0.113.1]}
+  register: no_zone
+  ignore_errors: true
+- ansible.builtin.assert:
+    that:
+      - "two_cnames is failed"
+      - "bad_a is failed"
+      - "no_zone is failed"
+
+- name: Delete
+  noderings.cloud.dns_record: {zone: "{{ zone }}", name: www, type: A, state: absent}
+  register: deleted
+- noderings.cloud.dns_record: {zone: "{{ zone }}", name: www, type: A, state: absent}
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "deleted is changed"
+      - "deleted_again is not changed"

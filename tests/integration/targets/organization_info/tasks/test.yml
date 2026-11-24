@@ -1,0 +1,9 @@
+---
+- name: Read the organization
+  noderings.cloud.organization_info:
+  register: result
+- ansible.builtin.assert:
+    that:
+      - result.organization.id | length > 0
+      - result.organizations | length > 0
+      - result.organization.keys() | list | sort == ['description', 'id', 'is_verified', 'name', 'type']

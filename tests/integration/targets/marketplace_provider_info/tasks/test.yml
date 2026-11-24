@@ -1,0 +1,23 @@
+---
+- name: Providers that sell virtual machines
+  noderings.cloud.marketplace_provider_info:
+    asset_type: virtual_machine
+  register: result
+- ansible.builtin.assert:
+    that: result.providers | length > 0
+- name: One provider's catalog
+  noderings.cloud.marketplace_provider_info:
+    id: "{{ result.providers[0].organization_id }}"
+  register: one
+- ansible.builtin.assert:
+    that:
+      - one.provider.organization_id == result.providers[0].organization_id
+      - one.provider.available_plans is iterable
+- name: ID and storefront are mutually exclusive
+  noderings.cloud.marketplace_provider_info:
+    id: "{{ result.providers[0].organization_id }}"
+    storefront_slug: x
+  register: both
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: both is failed

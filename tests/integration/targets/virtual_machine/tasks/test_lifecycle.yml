@@ -1,0 +1,113 @@
+---
+- name: Order (check mode) buys nothing
+  noderings.cloud.virtual_machine: "{{ vm_args }}"
+  check_mode: true
+  register: result
+- noderings.cloud.virtual_machine_info:
+    hostname: "{{ noderings_prefix }}"
+  register: no_match
+- ansible.builtin.assert:
+    that:
+      - "result is changed"
+      - "no_match.virtual_machines == []"
+
+- name: Order
+  noderings.cloud.virtual_machine: "{{ vm_args }}"
+  register: vm
+- ansible.builtin.assert:
+    that:
+      - vm is changed
+      - vm.offer.plan_id | length > 0
+      - vm.virtual_machine.power_state == 'running'
+      - vm.virtual_machine.provisioning_status == 'applied'
+      - vm.virtual_machine.distro == noderings_test_vm_distro
+      - vm.virtual_machine.tags == ['ansible-test', noderings_prefix] | sort
+      - vm.virtual_machine.firewall_ruleset_id | length > 0
+      - vm.virtual_machine.ipv4 | length > 0
+- name: Order again changes nothing
+  noderings.cloud.virtual_machine: "{{ vm_args }}"
+  register: again
+- ansible.builtin.assert:
+    that: again is not changed
+
+- name: Log in with the SSH key; cloud-init set the guest up
+  ansible.builtin.include_role:
+    name: setup_ssh_keypair
+    tasks_from: guest_check
+  vars:
+    guest_ip: "{{ vm.virtual_machine.ipv4 }}"
+    expected_os: "{{ noderings_test_vm_distro | regex_replace('_(\\d+)_(\\d+)$', '-\\1.\\2') | regex_replace('_(\\d+)$', '-\\1') }}"
+    expected_hostname: "{{ noderings_prefix }}"
+
+- name: A firewall rule that matches VMs by tag (needs a VM with the tag)
+  noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    rules:
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "22", source: {cidrs: [0.0.0.0/0]}}
+      - {direction: ingress, action: accept, protocol: icmp, source: {cidrs: [0.0.0.0/0]}}
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "8000-8100", source: {vm_tags: ["{{ noderings_prefix }}"]}}
+  register: tag_rule
+- ansible.builtin.assert:
+    that:
+      - tag_rule is changed
+      - tag_rule.ruleset.rules[2].source.vm_tags == [noderings_prefix]
+      - tag_rule.ruleset.attached_vm_hostnames == [noderings_prefix]
+
+- name: Add a tag without removing others
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", tags: [extra], purge_tags: false}
+  register: tag_added
+- name: Replace the tags
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", tags: [ansible-test, extra]}
+  register: tag_replaced
+  diff: true
+- ansible.builtin.assert:
+    that:
+      - tag_added is changed
+      - tag_added.virtual_machine.tags == ['ansible-test', 'extra', noderings_prefix] | sort
+      - tag_replaced is changed
+      - tag_replaced.virtual_machine.tags == ['ansible-test', 'extra']
+
+- name: Detach the firewall
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", firewall_ruleset: ""}
+  register: detached
+- noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", firewall_ruleset: ""}
+  register: detached_again
+- name: Attach it again, by ID
+  noderings.cloud.virtual_machine: {id: "{{ vm.virtual_machine.id }}", firewall_ruleset: "{{ vm.virtual_machine.firewall_ruleset_id }}"}
+  register: attached
+- ansible.builtin.assert:
+    that:
+      - "detached is changed"
+      - "detached_again is not changed"
+      - "attached is changed"
+
+- name: Stop
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", state: stopped}
+  register: stopped
+- noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", state: stopped}
+  register: stopped_again
+- name: Start
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", state: running}
+  register: started
+- name: Restart
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", state: restarted}
+  register: restarted
+- ansible.builtin.assert:
+    that:
+      - stopped is changed and stopped.virtual_machine.power_state == 'stopped'
+      - stopped_again is not changed
+      - started is changed and started.virtual_machine.power_state == 'running'
+      - restarted is changed and restarted.virtual_machine.power_state == 'running'
+
+- name: Another distro without allow_reinstall only warns
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", distro: "{{ noderings_test_vm_reinstall_distro | default('debian_12') }}"}
+  register: warned
+- ansible.builtin.assert:
+    that: warned is not changed
+
+- name: Plan arguments are required to order (expected to fail)
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}-missing"}
+  register: noplan
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: noplan is failed and 'plan_code' in noplan.msg

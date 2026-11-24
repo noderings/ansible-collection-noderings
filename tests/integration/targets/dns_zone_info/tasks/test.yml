@@ -1,0 +1,20 @@
+---
+- name: By name, with DNSSEC
+  noderings.cloud.dns_zone_info:
+    name: "{{ zone }}"
+    include_dnssec: true
+  register: by_name
+- name: All zones
+  noderings.cloud.dns_zone_info:
+  register: all_zones
+- ansible.builtin.assert:
+    that:
+      - by_name.zones | length == 1
+      - by_name.zones[0].dnssec is defined
+      - by_name.zones[0].id in (all_zones.zones | map(attribute='id') | list)
+- name: By ID
+  noderings.cloud.dns_zone_info:
+    id: "{{ by_name.zones[0].id }}"
+  register: by_id
+- ansible.builtin.assert:
+    that: by_id.zones | map(attribute='name') | list == [zone]

@@ -1,0 +1,34 @@
+---
+- ansible.builtin.assert:
+    that:
+      - gs is changed
+      - gs.game_server.phase == 'ready'
+      - gs.game_server.primary_port > 0
+- name: Order again changes nothing
+  noderings.cloud.game_server:
+    name: "{{ noderings_prefix }}"
+    plan_id: "{{ noderings_test_game_plan_id }}"
+    game: "{{ noderings_test_game | default('Minecraft') }}"
+    accept_eula: true
+    state: running
+  register: again
+- name: Stop
+  noderings.cloud.game_server: {name: "{{ noderings_prefix }}", state: offline}
+  register: stopped
+- name: Start
+  noderings.cloud.game_server: {name: "{{ noderings_prefix }}", state: running}
+  register: started
+- name: Rename
+  noderings.cloud.game_server: {name: "{{ noderings_prefix }}", new_name: "{{ noderings_prefix }}-renamed"}
+  register: renamed
+- ansible.builtin.assert:
+    that:
+      - "again is not changed"
+      - "stopped is changed"
+      - "started is changed"
+      - "renamed is changed"
+- name: Delete
+  noderings.cloud.game_server: {name: "{{ noderings_prefix }}-renamed", state: absent}
+  register: deleted
+- ansible.builtin.assert:
+    that: deleted is changed

@@ -1,0 +1,16 @@
+---
+- name: Delete (check mode)
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", state: absent}
+  check_mode: true
+  register: delete_check
+- name: Delete
+  noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", state: absent}
+  register: deleted
+- noderings.cloud.virtual_machine: {hostname: "{{ noderings_prefix }}", state: absent}
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "delete_check is changed"
+      - "deleted is changed"
+      - "deleted_again is not changed"
+      - "deleted.virtual_machine == {}"

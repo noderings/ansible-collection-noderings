@@ -1,0 +1,45 @@
+---
+- name: Backup add-ons for the VM
+  noderings.cloud.marketplace_addon_info:
+    vm: "{{ noderings_prefix }}"
+    addon_type: backup
+  register: addons
+- ansible.builtin.set_fact:
+    backup_codes: "{{ addons.addons | map(attribute='code') | unique | list }}"
+- name: Turn backups on (check mode)
+  noderings.cloud.virtual_machine_backup: {vm: "{{ noderings_prefix }}", addon: "{{ backup_codes[0] }}"}
+  check_mode: true
+  register: result
+- name: Turn backups on
+  noderings.cloud.virtual_machine_backup: {vm: "{{ noderings_prefix }}", addon: "{{ backup_codes[0] }}"}
+  register: enabled
+- noderings.cloud.virtual_machine_backup: {vm: "{{ noderings_prefix }}", addon: "{{ backup_codes[0] }}"}
+  register: enabled_again
+- ansible.builtin.assert:
+    that:
+      - result is changed
+      - enabled is changed
+      - enabled_again is not changed
+      - enabled.backup.addon_code == backup_codes[0]
+      - enabled.backup.addon_status == 'active'
+- name: Switch to another backup add-on
+  noderings.cloud.virtual_machine_backup: {vm: "{{ noderings_prefix }}", addon: "{{ backup_codes[1] }}"}
+  register: switched
+  when: backup_codes | length > 1
+- ansible.builtin.assert:
+    that: switched is skipped or (switched is changed and switched.backup.addon_code == backup_codes[1])
+- name: An add-on the provider does not sell (expected to fail)
+  noderings.cloud.virtual_machine_backup: {vm: "{{ noderings_prefix }}", addon: NO-SUCH-ADDON}
+  register: unknown
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: unknown is failed
+- name: Turn backups off
+  noderings.cloud.virtual_machine_backup: {vm: "{{ noderings_prefix }}", state: absent}
+  register: disabled
+- noderings.cloud.virtual_machine_backup: {vm: "{{ noderings_prefix }}", state: absent}
+  register: disabled_again
+- ansible.builtin.assert:
+    that:
+      - "disabled is changed"
+      - "disabled_again is not changed"

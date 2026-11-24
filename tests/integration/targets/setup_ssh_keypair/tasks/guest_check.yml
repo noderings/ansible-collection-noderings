@@ -1,0 +1,25 @@
+---
+# Logs in to the guest until it runs expected_os, then checks what cloud-init set up.
+# Inputs: guest_ip, expected_os (os-release "ID-VERSION_ID" prefix), expected_hostname.
+- name: "Guest runs {{ expected_os }}"
+  ansible.builtin.shell: "{{ noderings_test_ssh }} root@{{ guest_ip }} sh -s < {{ noderings_test_guest_probe }}"
+  register: probe
+  changed_when: false
+  retries: 48
+  delay: 15
+  until: probe.rc == 0 and ('os=' ~ expected_os) in probe.stdout
+- ansible.builtin.set_fact:
+    guest: "{{ dict(probe.stdout_lines | select('search', '=') | map('split', '=', 1)) }}"
+- name: "{{ expected_os }}: cloud-init finished, hostname, IPv4 and DNS work"
+  ansible.builtin.assert:
+    that:
+      - guest.cloudinit is search('done')
+      - guest.hostname == expected_hostname
+      - guest.net4 == 'ok'
+      - guest.dns == 'ok'
+    fail_msg: "{{ expected_os }}: {{ guest }}"
+- name: "{{ expected_os }}: IPv6 works"
+  ansible.builtin.assert:
+    that: guest.net6 == 'ok'
+    fail_msg: "{{ expected_os }}: no IPv6 ({{ guest }})"
+  when: noderings_test_require_ipv6 | default(false) | bool

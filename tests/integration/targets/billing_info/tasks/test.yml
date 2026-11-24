@@ -1,0 +1,15 @@
+---
+- name: Read billing
+  noderings.cloud.billing_info:
+  register: result
+- ansible.builtin.assert:
+    that:
+      - result.credit.currency | length > 0
+      - result.credit.available is defined
+      - result.entitlements | length > 0
+- name: All subscriptions, not only active ones
+  noderings.cloud.billing_info:
+    only_active_subscriptions: false
+  register: all_subs
+- ansible.builtin.assert:
+    that: all_subs.subscriptions | length >= result.subscriptions | length

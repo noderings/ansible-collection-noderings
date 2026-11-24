@@ -1,0 +1,32 @@
+---
+- name: One more address (check mode)
+  noderings.cloud.virtual_machine_additional_ip: {vm: "{{ noderings_prefix }}", count: 1}
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that:
+      - "result is changed"
+      - "result.added | length == 1"
+- name: One more address
+  noderings.cloud.virtual_machine_additional_ip: {vm: "{{ noderings_prefix }}", count: 1}
+  register: added
+- noderings.cloud.virtual_machine_additional_ip: {vm: "{{ noderings_prefix }}", count: 1}
+  register: added_again
+- ansible.builtin.assert:
+    that:
+      - added is changed
+      - added.added | length == 1
+      - added.additional_ips | length == 1
+      - added.additional_ips[0].ip_address == added.added[0]
+      - added_again is not changed
+- name: Release it by address
+  noderings.cloud.virtual_machine_additional_ip: {vm: "{{ vm.virtual_machine.id }}", ip_address: "{{ added.added[0] }}", state: absent}
+  register: released
+- noderings.cloud.virtual_machine_additional_ip: {vm: "{{ noderings_prefix }}", count: 0}
+  register: none_left
+- ansible.builtin.assert:
+    that:
+      - released is changed
+      - released.removed == added.added
+      - none_left is not changed
+      - none_left.additional_ips == []

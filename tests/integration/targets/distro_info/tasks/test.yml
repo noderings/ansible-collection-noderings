@@ -1,0 +1,17 @@
+---
+- name: Every distro
+  noderings.cloud.distro_info:
+  register: result
+- ansible.builtin.assert:
+    that:
+      - result.distros | length > 0
+      - result.distros | selectattr('is_default') | list | length > 0
+      - noderings_test_vm_distro in (result.distros | map(attribute='distro') | list)
+- name: One family
+  noderings.cloud.distro_info:
+    family: ubuntu
+  register: ubuntu
+- ansible.builtin.assert:
+    that:
+      - ubuntu.distros | length > 0
+      - ubuntu.distros | map(attribute='family') | unique | list == ['ubuntu']

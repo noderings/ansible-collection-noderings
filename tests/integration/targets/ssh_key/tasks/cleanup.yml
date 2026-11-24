@@ -1,0 +1,4 @@
+---
+- noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    state: absent

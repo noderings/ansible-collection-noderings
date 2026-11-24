@@ -1,0 +1,28 @@
+---
+- name: By hostname
+  noderings.cloud.virtual_machine_info:
+    hostname: "{{ noderings_prefix }}"
+  register: by_hostname
+- name: By ID, with snapshots and backups
+  noderings.cloud.virtual_machine_info:
+    id: "{{ vm.virtual_machine.id }}"
+    include_snapshots: true
+    include_backups: true
+  register: by_id
+- name: By tags
+  noderings.cloud.virtual_machine_info:
+    tags: [ansible-test, "{{ noderings_prefix }}"]
+  register: by_tags
+- name: A tag nobody has
+  noderings.cloud.virtual_machine_info:
+    tags: ["{{ noderings_prefix }}-nobody"]
+  register: by_other_tag
+- ansible.builtin.assert:
+    that:
+      - by_hostname.virtual_machines | length == 1
+      - by_hostname.virtual_machines[0].id == vm.virtual_machine.id
+      - by_id.virtual_machines[0].snapshots is defined
+      - by_id.virtual_machines[0].backups is defined
+      - by_tags.virtual_machines | map(attribute='id') | list == [vm.virtual_machine.id]
+      - by_other_tag.virtual_machines == []
+      - noderings_prefix in by_hostname.tags

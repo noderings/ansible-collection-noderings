@@ -1,0 +1,63 @@
+---
+- name: Inventory file for the plugin
+  ansible.builtin.copy:
+    dest: "{{ output_dir }}/test.noderings.yml"
+    mode: "0600"
+    content: |
+      plugin: noderings.cloud.noderings
+      api_token: {{ noderings_api_token }}
+      tags: [{{ noderings_prefix }}]
+      keyed_groups:
+        - key: noderings_distro
+          prefix: distro
+      compose:
+        ansible_user: "'root'"
+- name: List the inventory (host variables from the API are marked unsafe; unwrap them to read)
+  ansible.builtin.shell: >-
+    ansible-inventory -i {{ output_dir }}/test.noderings.yml --list
+    | {{ ansible_playbook_python }} {{ role_path }}/files/unwrap_unsafe.py
+  register: listed
+  changed_when: false
+- ansible.builtin.set_fact:
+    inventory: "{{ listed.stdout | from_json }}"
+- ansible.builtin.set_fact:
+    hostvars_vm: "{{ inventory._meta.hostvars[noderings_prefix] }}"
+    group_name: "noderings_tag_{{ noderings_prefix | replace('-', '_') }}"
+- ansible.builtin.assert:
+    that:
+      - noderings_prefix in inventory.noderings.hosts
+      - noderings_prefix in inventory[group_name].hosts
+      - noderings_prefix in inventory['distro_' ~ noderings_test_vm_distro].hosts
+      - noderings_prefix in inventory.noderings_state_running.hosts
+      - hostvars_vm.ansible_host == vm.virtual_machine.ipv4
+      - hostvars_vm.ansible_user == 'root'
+      - hostvars_vm.noderings_id == vm.virtual_machine.id
+- name: Name hosts by IPv4 and keep only stopped VMs
+  ansible.builtin.copy:
+    dest: "{{ output_dir }}/stopped.noderings.yml"
+    mode: "0600"
+    content: |
+      plugin: noderings.cloud.noderings
+      api_token: {{ noderings_api_token }}
+      tags: [{{ noderings_prefix }}]
+      hostname: ipv4
+      states: [stopped]
+- ansible.builtin.command: ansible-inventory -i {{ output_dir }}/stopped.noderings.yml --graph
+  register: stopped_graph
+  changed_when: false
+- ansible.builtin.assert:
+    that: vm.virtual_machine.ipv4 not in stopped_graph.stdout
+- name: Run a module on the VM through the inventory
+  ansible.builtin.command: >-
+    ansible -i {{ output_dir }}/test.noderings.yml {{ group_name }} -m ansible.builtin.ping
+    --private-key {{ noderings_test_ssh_private_key }}
+  environment:
+    ANSIBLE_HOST_KEY_CHECKING: "False"
+    ANSIBLE_SSH_ARGS: -o UserKnownHostsFile=/dev/null -o ControlMaster=no
+  register: pinged
+  retries: 10
+  delay: 15
+  until: pinged.rc == 0
+  changed_when: false
+- ansible.builtin.assert:
+    that: "'SUCCESS' in pinged.stdout"

@@ -1,0 +1,9 @@
+---
+- ansible.builtin.set_fact:
+    zone: "{{ noderings_prefix }}.{{ noderings_test_domain | default('example.com') }}"
+- noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+
+- noderings.cloud.dns_record: {zone: "{{ zone }}", name: www, type: A, values: [203.0.113.10]}
+- noderings.cloud.dns_record: {zone: "{{ zone }}", name: "@", type: MX, values: ["10 mail.example.com."]}
+- noderings.cloud.dns_geo_record: {zone: "{{ zone }}", name: geo, type: A, default: 203.0.113.10}

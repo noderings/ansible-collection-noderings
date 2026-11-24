@@ -1,0 +1,19 @@
+---
+- name: Take a locked backup
+  noderings.cloud.game_server_backup: {game_server: "{{ noderings_prefix }}", name: before-test, locked: true}
+  register: taken
+- noderings.cloud.game_server_backup: {game_server: "{{ noderings_prefix }}", name: before-test, locked: true}
+  register: taken_again
+- name: A locked backup is not deleted (expected to fail)
+  noderings.cloud.game_server_backup: {game_server: "{{ noderings_prefix }}", name: before-test, state: absent}
+  register: locked
+  ignore_errors: true
+- name: Unlock and delete
+  noderings.cloud.game_server_backup: {game_server: "{{ noderings_prefix }}", name: before-test, state: absent, locked: false}
+  register: deleted
+- ansible.builtin.assert:
+    that:
+      - "taken is changed"
+      - "taken_again is not changed"
+      - "locked is failed"
+      - "deleted is changed"

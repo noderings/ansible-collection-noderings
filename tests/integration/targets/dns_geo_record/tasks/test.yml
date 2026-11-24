@@ -1,0 +1,52 @@
+---
+- name: Create
+  noderings.cloud.dns_geo_record:
+    zone: "{{ zone }}"
+    name: app
+    type: A
+    default: 203.0.113.10
+    continents: {EU: 198.51.100.20}
+    countries: {jp: 192.0.2.30}
+  register: created
+- name: Same answers, country code in upper case
+  noderings.cloud.dns_geo_record:
+    zone: "{{ zone }}"
+    name: app
+    type: A
+    default: 203.0.113.10
+    continents: {EU: 198.51.100.20}
+    countries: {JP: 192.0.2.30}
+  register: same
+- ansible.builtin.assert:
+    that:
+      - created is changed
+      - same is not changed
+      - "created.geo_record.countries == {'JP': '192.0.2.30'}"
+- name: Change the default answer
+  noderings.cloud.dns_geo_record:
+    zone: "{{ zone }}"
+    name: app
+    type: A
+    default: 203.0.113.99
+    continents: {EU: 198.51.100.20}
+    countries: {JP: 192.0.2.30}
+  register: changed
+- ansible.builtin.assert:
+    that:
+      - "changed is changed"
+      - "changed.geo_record.default == '203.0.113.99'"
+- name: TTL above 60 (expected to fail)
+  noderings.cloud.dns_geo_record: {zone: "{{ zone }}", name: app, type: A, default: 203.0.113.10, ttl: 300}
+  register: bad_ttl
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: bad_ttl is failed
+- name: Delete
+  noderings.cloud.dns_geo_record: {zone: "{{ zone }}", name: app, type: A, state: absent}
+  register: deleted
+- noderings.cloud.dns_geo_record: {zone: "{{ zone }}", name: app, type: A, state: absent}
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "deleted is changed"
+      - "deleted_again is not changed"

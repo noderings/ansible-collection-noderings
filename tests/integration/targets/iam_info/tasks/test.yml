@@ -1,0 +1,29 @@
+---
+- name: The default subsets
+  noderings.cloud.iam_info:
+  register: defaults
+- ansible.builtin.assert:
+    that:
+      - defaults.users | length > 0
+      - defaults.roles | selectattr('is_builtin') | list | length > 0
+      - noderings_test_service_account in (defaults.service_accounts | map(attribute='name') | list)
+      - defaults.permissions is not defined
+- name: Permissions, filtered
+  noderings.cloud.iam_info:
+    gather_subset: [permissions]
+    permission_filter: VirtualMachine
+  register: perms
+- ansible.builtin.assert:
+    that:
+      - perms.permissions | length > 0
+      - perms.permissions | rejectattr('method_name', 'search', 'VirtualMachine') | list == []
+      - perms.users is not defined
+- name: Secrets and environment variables
+  noderings.cloud.iam_info:
+    gather_subset: [secrets, environment_variables]
+  register: config
+- ansible.builtin.assert:
+    that:
+      - config.secrets is iterable
+      - config.secrets | selectattr('value', 'defined') | list == []
+      - config.environment_variables is iterable

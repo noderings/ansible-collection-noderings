@@ -1,0 +1,7 @@
+---
+- noderings.cloud.group:
+    name: "{{ noderings_prefix }}"
+    state: absent
+- noderings.cloud.role:
+    name: "{{ noderings_prefix }}"
+    state: absent

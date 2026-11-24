@@ -1,0 +1,12 @@
+---
+- name: Delete the test VM
+  noderings.cloud.virtual_machine:
+    hostname: "{{ noderings_prefix }}"
+    state: absent
+- noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    state: absent
+    force: true
+- noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    state: absent

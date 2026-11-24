@@ -1,0 +1,5 @@
+---
+- noderings.cloud.game_server:
+    name: "{{ noderings_prefix }}"
+    state: absent
+  when: noderings_test_game_plan_id is defined

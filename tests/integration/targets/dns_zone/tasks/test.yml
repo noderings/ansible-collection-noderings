@@ -1,0 +1,79 @@
+---
+- ansible.builtin.set_fact:
+    zone: "{{ noderings_prefix }}.{{ noderings_test_domain | default('example.com') }}"
+- name: Create (check mode)
+  noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that: result is changed
+- name: Create
+  noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+  register: created
+- ansible.builtin.assert:
+    that:
+      - created is changed
+      - created.zone.id | length > 0
+      - created.zone.assigned_nameservers | length > 0
+- name: Upper case and a trailing dot are the same zone
+  noderings.cloud.dns_zone:
+    name: "{{ zone | upper }}."
+  register: same
+- ansible.builtin.assert:
+    that: same is not changed
+
+- name: Turn DNSSEC on
+  noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+    dnssec: true
+  register: dnssec_on
+- noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+    dnssec: true
+  register: dnssec_on_again
+- ansible.builtin.assert:
+    that:
+      - dnssec_on is changed
+      - dnssec_on_again is not changed
+      - dnssec_on.dnssec.mode in ['signed_ds_pending', 'signed_active']
+      - dnssec_on.dnssec.ds | length > 0
+- name: Turn DNSSEC off
+  noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+    dnssec: false
+  register: dnssec_off
+- ansible.builtin.assert:
+    that:
+      - "dnssec_off is changed"
+      - "dnssec_off.dnssec.mode == 'unsigned'"
+
+- name: Re-check delegation
+  noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+    check_delegation: true
+  register: delegation
+- ansible.builtin.assert:
+    that: delegation.zone.delegation_ok is defined
+
+- name: Delete (check mode)
+  noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+    state: absent
+  check_mode: true
+  register: delete_check
+- name: Delete
+  noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+    state: absent
+  register: deleted
+- noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+    state: absent
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "delete_check is changed"
+      - "deleted is changed"
+      - "deleted_again is not changed"

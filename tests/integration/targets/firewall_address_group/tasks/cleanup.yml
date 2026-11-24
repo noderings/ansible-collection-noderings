@@ -1,0 +1,4 @@
+---
+- noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}"
+    state: absent
