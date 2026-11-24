@@ -1,0 +1,18 @@
+---
+- name: Create a database
+  noderings.cloud.game_server_database: {game_server: "{{ noderings_prefix }}", name: testdb}
+  register: created
+- noderings.cloud.game_server_database: {game_server: "{{ noderings_prefix }}", name: testdb}
+  register: created_again
+- name: Rotate its password
+  noderings.cloud.game_server_database: {game_server: "{{ noderings_prefix }}", name: testdb, rotate_password: true}
+  register: rotated
+- name: Delete
+  noderings.cloud.game_server_database: {game_server: "{{ noderings_prefix }}", name: testdb, state: absent}
+  register: deleted
+- ansible.builtin.assert:
+    that:
+      - created is changed and created.database.password | length > 0
+      - created_again is not changed and created_again.database.password is not defined
+      - rotated is changed and rotated.database.password != created.database.password
+      - deleted is changed

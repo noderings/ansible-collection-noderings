@@ -1,0 +1,17 @@
+---
+- name: SSH key for the test VM
+  noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    public_key: "{{ noderings_test_ssh_public_key }}"
+- name: Order the test VM
+  noderings.cloud.virtual_machine:
+    hostname: "{{ noderings_prefix }}"
+    plan_code: "{{ noderings_test_vm_plan_code }}"
+    country: "{{ noderings_test_vm_country }}"
+    city: "{{ noderings_test_vm_city }}"
+    billing_type: usage
+    distro: "{{ noderings_test_vm_distro }}"
+    ssh_keys: ["{{ noderings_prefix }}"]
+    tags: [ansible-test, "{{ noderings_prefix }}"]
+    state: running
+  register: vm

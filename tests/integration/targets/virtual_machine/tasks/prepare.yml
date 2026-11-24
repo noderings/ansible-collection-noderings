@@ -1,0 +1,23 @@
+---
+- name: SSH key for the test VM
+  noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    public_key: "{{ noderings_test_ssh_public_key }}"
+- name: Firewall for the test VM
+  noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    rules:
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "22", source: {cidrs: [0.0.0.0/0]}}
+      - {direction: ingress, action: accept, protocol: icmp, source: {cidrs: [0.0.0.0/0]}}
+- ansible.builtin.set_fact:
+    vm_args:
+      hostname: "{{ noderings_prefix }}"
+      plan_code: "{{ noderings_test_vm_plan_code }}"
+      country: "{{ noderings_test_vm_country }}"
+      city: "{{ noderings_test_vm_city }}"
+      billing_type: usage
+      distro: "{{ noderings_test_vm_distro }}"
+      ssh_keys: ["{{ noderings_prefix }}"]
+      tags: [ansible-test, "{{ noderings_prefix }}"]
+      firewall_ruleset: "{{ noderings_prefix }}"
+      state: running

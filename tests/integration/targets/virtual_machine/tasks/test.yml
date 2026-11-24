@@ -1,0 +1,6 @@
+---
+- ansible.builtin.include_tasks: test_lifecycle.yml
+- ansible.builtin.include_tasks: test_reinstall.yml
+- ansible.builtin.include_tasks: test_os_matrix.yml
+  when: noderings_test_os_matrix | default(false) | bool
+- ansible.builtin.include_tasks: test_delete.yml

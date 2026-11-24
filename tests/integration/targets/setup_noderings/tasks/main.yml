@@ -1,0 +1,19 @@
+---
+# Shared by every target. Sets a unique prefix once per run so resource names
+# do not change between tasks, and checks that the token is configured.
+- name: Require the API token
+  ansible.builtin.assert:
+    that: noderings_api_token is defined and noderings_api_token | length > 0
+    fail_msg: Set noderings_api_token in tests/integration/integration_config.yml (see the README).
+
+- name: Unique prefix for this run
+  ansible.builtin.set_fact:
+    noderings_prefix: "ansible-test-{{ lookup('ansible.builtin.password', '/dev/null', chars=['ascii_lowercase', 'digits'], length=8) }}"
+  when: noderings_prefix is not defined
+
+- name: Defaults for billed virtual machine targets
+  ansible.builtin.set_fact:
+    noderings_test_vm_plan_code: "{{ noderings_test_vm_plan_code | default('SC-GC-1C-1G-20') }}"
+    noderings_test_vm_country: "{{ noderings_test_vm_country | default('United States') }}"
+    noderings_test_vm_city: "{{ noderings_test_vm_city | default('Ashburn') }}"
+    noderings_test_vm_distro: "{{ noderings_test_vm_distro | default('ubuntu_24_04') }}"

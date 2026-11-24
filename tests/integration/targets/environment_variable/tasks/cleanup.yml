@@ -1,0 +1,4 @@
+---
+- noderings.cloud.environment_variable:
+    key: "{{ noderings_prefix | upper | replace('-', '_') }}"
+    state: absent

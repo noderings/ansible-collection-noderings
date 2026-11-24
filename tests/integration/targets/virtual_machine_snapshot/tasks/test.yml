@@ -1,0 +1,34 @@
+---
+- name: Take a snapshot (check mode)
+  noderings.cloud.virtual_machine_snapshot: {vm: "{{ noderings_prefix }}", description: "{{ noderings_prefix }}-snap"}
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that: result is changed
+- name: Snapshots need the provider's snapshot support
+  when: noderings_test_snapshots | default(false) | bool
+  block:
+    - name: Take a snapshot
+      noderings.cloud.virtual_machine_snapshot: {vm: "{{ noderings_prefix }}", description: "{{ noderings_prefix }}-snap"}
+      register: taken
+    - noderings.cloud.virtual_machine_snapshot: {vm: "{{ noderings_prefix }}", description: "{{ noderings_prefix }}-snap"}
+      register: taken_again
+    - ansible.builtin.assert:
+        that:
+          - taken is changed
+          - taken_again is not changed
+          - taken.snapshot.operation_status == 'SNAPSHOT_OPERATION_STATUS_COMPLETED'
+- name: Take a snapshot without waiting
+  noderings.cloud.virtual_machine_snapshot: {vm: "{{ vm.virtual_machine.id }}", description: "{{ noderings_prefix }}-nowait", wait: false}
+  register: nowait
+- ansible.builtin.assert:
+    that:
+      - "nowait is changed"
+      - "nowait.snapshot.id | length > 0"
+- name: Delete the snapshots
+  noderings.cloud.virtual_machine_snapshot: {vm: "{{ noderings_prefix }}", description: "{{ item }}", state: absent}
+  loop: ["{{ noderings_prefix }}-snap", "{{ noderings_prefix }}-nowait"]
+- noderings.cloud.virtual_machine_snapshot: {vm: "{{ noderings_prefix }}", description: "{{ noderings_prefix }}-nowait", state: absent}
+  register: deleted_again
+- ansible.builtin.assert:
+    that: deleted_again is not changed

@@ -1,0 +1,14 @@
+---
+# Settings come from tests/integration/integration_config.yml (see the README).
+- name: Run against the NodeRings API
+  module_defaults:
+    group/noderings.cloud.noderings:
+      api_token: "{{ noderings_api_token }}"
+  block:
+    - name: Prepare
+      ansible.builtin.include_tasks: prepare.yml
+    - name: Test
+      ansible.builtin.include_tasks: test.yml
+  always:
+    - name: Clean up
+      ansible.builtin.include_tasks: cleanup.yml

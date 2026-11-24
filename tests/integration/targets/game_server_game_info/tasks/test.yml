@@ -1,0 +1,18 @@
+---
+- name: Game server targets need a game-server plan
+  ansible.builtin.meta: end_host
+  when: noderings_test_game_plan_id is not defined
+
+- name: Games of the plan
+  noderings.cloud.game_server_game_info:
+    plan_id: "{{ noderings_test_game_plan_id }}"
+  register: games
+- name: One game by name
+  noderings.cloud.game_server_game_info:
+    plan_id: "{{ noderings_test_game_plan_id }}"
+    name: "{{ games.games[0].name | upper }}"
+  register: one
+- ansible.builtin.assert:
+    that:
+      - "games.games | length > 0"
+      - "one.games | length == 1"

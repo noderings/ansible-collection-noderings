@@ -1,0 +1,17 @@
+---
+- name: By name
+  noderings.cloud.ssh_key_info:
+    name: "{{ noderings_prefix }}"
+  register: by_name
+- name: By ID
+  noderings.cloud.ssh_key_info:
+    id: "{{ key.ssh_key.id }}"
+  register: by_id
+- name: All
+  noderings.cloud.ssh_key_info:
+  register: all_keys
+- ansible.builtin.assert:
+    that:
+      - by_name.ssh_keys | length == 1
+      - by_id.ssh_keys == by_name.ssh_keys
+      - key.ssh_key.id in (all_keys.ssh_keys | map(attribute='id') | list)

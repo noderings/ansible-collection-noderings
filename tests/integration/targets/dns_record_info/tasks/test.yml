@@ -1,0 +1,22 @@
+---
+- name: All records
+  noderings.cloud.dns_record_info:
+    zone: "{{ zone }}"
+  register: all_records
+- name: Including the platform's own records
+  noderings.cloud.dns_record_info:
+    zone: "{{ zone }}"
+    include_system: true
+  register: with_system
+- name: One name and type
+  noderings.cloud.dns_record_info:
+    zone: "{{ zone }}"
+    name: "@"
+    type: MX
+  register: mx
+- ansible.builtin.assert:
+    that:
+      - all_records.records | selectattr('name', 'equalto', 'www') | list | length == 1
+      - with_system.records | length > all_records.records | length
+      - "mx.records | length == 1 and mx.records[0]['values'] == ['10 mail.example.com.']"
+      - all_records.geo_records | selectattr('name', 'equalto', 'geo') | list | length == 1

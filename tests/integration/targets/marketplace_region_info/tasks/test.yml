@@ -1,0 +1,14 @@
+---
+- name: Cities with virtual machine offers
+  noderings.cloud.marketplace_region_info:
+    asset_type: virtual_machine
+  register: result
+- ansible.builtin.assert:
+    that:
+      - result.regions | length > 0
+      - result.regions | selectattr('city', 'equalto', noderings_test_vm_city) | list | length == 1
+- name: Every city
+  noderings.cloud.marketplace_region_info:
+  register: every
+- ansible.builtin.assert:
+    that: every.regions | length >= result.regions | length

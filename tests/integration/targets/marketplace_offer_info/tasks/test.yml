@@ -1,0 +1,49 @@
+---
+- name: Offers for the test plan
+  noderings.cloud.marketplace_offer_info:
+    plan_code: "{{ noderings_test_vm_plan_code }}"
+    country: "{{ noderings_test_vm_country }}"
+    city: "{{ noderings_test_vm_city | lower }}"
+    billing_type: usage
+  register: result
+- ansible.builtin.assert:
+    that:
+      - result.offer.plan_id | length > 0
+      - result.offer.region_id | length > 0
+      - result.offer.billing_type == 'usage'
+      - result.offers | length >= 1
+      - result.offers[0] == result.offer
+- name: Sorted by rating, pinned to the same provider
+  noderings.cloud.marketplace_offer_info:
+    plan_code: "{{ noderings_test_vm_plan_code }}"
+    country: "{{ noderings_test_vm_country }}"
+    city: "{{ noderings_test_vm_city }}"
+    billing_type: usage
+    provider_id: "{{ result.offer.provider_id }}"
+    sort: rating
+  register: pinned
+- ansible.builtin.assert:
+    that: pinned.offers | map(attribute='provider_id') | unique | list == [result.offer.provider_id]
+- name: A capability nobody has leaves no offer
+  noderings.cloud.marketplace_offer_info:
+    plan_code: "{{ noderings_test_vm_plan_code }}"
+    country: "{{ noderings_test_vm_country }}"
+    city: "{{ noderings_test_vm_city }}"
+    require_capabilities: [no_such_capability]
+  register: nocap
+  ignore_errors: true
+- ansible.builtin.assert:
+    that:
+      - nocap is failed
+      - "'matched the location but not require_ipv6 or require_capabilities' in nocap.msg"
+- name: An unknown plan code, without failing
+  noderings.cloud.marketplace_offer_info:
+    plan_code: NO-SUCH-PLAN
+    country: "{{ noderings_test_vm_country }}"
+    city: "{{ noderings_test_vm_city }}"
+    fail_if_none: false
+  register: no_match
+- ansible.builtin.assert:
+    that:
+      - "no_match.offer == {}"
+      - "no_match.offers == []"

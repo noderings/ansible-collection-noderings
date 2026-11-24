@@ -1,0 +1,28 @@
+# Copy to tests/integration/integration_config.yml (git-ignored) and fill in.
+# Every integration target calls the real NodeRings API.
+
+# Required: a service-account token for a test organization.
+noderings_api_token: ""
+
+# DNS targets create zones named <prefix>.<this domain>.
+noderings_test_domain: example.com
+
+# IAM targets add and remove this service account from a test group.
+noderings_test_service_account: ""
+
+# Billed targets (noderings/billed/) order small usage-billed VMs here.
+noderings_test_vm_plan_code: SC-GC-1C-1G-20
+noderings_test_vm_country: United States
+noderings_test_vm_city: Ashburn
+noderings_test_vm_distro: ubuntu_24_04
+noderings_test_vm_reinstall_distro: debian_12
+
+# Opt-in checks.
+noderings_test_snapshots: false        # the provider supports snapshots
+noderings_test_require_ipv6: false     # fail when a guest has no IPv6
+noderings_test_os_matrix: false        # virtual_machine: reinstall through every distro (about an hour)
+# noderings_test_os_matrix_distros: [ubuntu_24_04, rocky_9]
+
+# Game server targets skip unless a game-server plan is set.
+# noderings_test_game_plan_id: ""
+# noderings_test_game: Minecraft

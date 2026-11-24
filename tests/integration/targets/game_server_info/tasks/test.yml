@@ -1,0 +1,10 @@
+---
+- name: The test game server with details
+  noderings.cloud.game_server_info:
+    name: "{{ noderings_prefix }}"
+  register: info
+- ansible.builtin.assert:
+    that:
+      - info.game_servers | length == 1
+      - info.details.resources is defined
+      - info.details.startup is defined

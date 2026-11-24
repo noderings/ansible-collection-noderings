@@ -1,0 +1,55 @@
+---
+- name: Create (check mode)
+  noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}"
+    cidrs: [203.0.113.0/24, "2001:db8:10::/48", 198.51.100.7]
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that: result is changed
+- name: Create
+  noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}"
+    cidrs: [203.0.113.0/24, "2001:db8:10::/48", 198.51.100.7]
+  register: created
+- name: Same prefixes in another order, a host written with /32
+  noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}"
+    cidrs: [198.51.100.7/32, "2001:db8:10::/48", 203.0.113.0/24]
+  register: same
+- ansible.builtin.assert:
+    that:
+      - "created is changed"
+      - "same is not changed"
+      - "created.address_group.id | length > 0"
+- name: Shrink
+  noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}"
+    cidrs: [203.0.113.0/24]
+  register: shrunk
+  diff: true
+- ansible.builtin.assert:
+    that:
+      - "shrunk is changed"
+      - "shrunk.address_group.cidrs == ['203.0.113.0/24']"
+- name: Not a prefix (expected to fail)
+  noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}-bad"
+    cidrs: [not-an-ip]
+  register: bad
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: bad is failed
+- name: Delete
+  noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}"
+    state: absent
+  register: deleted
+- noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}"
+    state: absent
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "deleted is changed"
+      - "deleted_again is not changed"

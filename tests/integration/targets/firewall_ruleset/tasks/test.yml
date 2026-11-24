@@ -1,0 +1,105 @@
+---
+- ansible.builtin.set_fact:
+    web_rules:
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "22", source: {address_groups: ["{{ noderings_prefix }}-office"]}}
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "80", source: {cidrs: [0.0.0.0/0]}}
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "443", source: {cidrs: ["::/0"]}}
+      - {direction: ingress, action: accept, protocol: icmp, source: {cidrs: [0.0.0.0/0]}}
+      - {direction: egress, action: accept, protocol: any, destination: {cidrs: [0.0.0.0/0]}}
+- name: Create with rules (check mode)
+  noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    rules: "{{ web_rules }}"
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that:
+      - "result is changed"
+      - "result.ruleset.rules | length == 5"
+- name: Create with rules
+  noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    rules: "{{ web_rules }}"
+  register: created
+- noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    rules: "{{ web_rules }}"
+  register: same
+- ansible.builtin.assert:
+    that:
+      - created is changed
+      - same is not changed
+      - created.ruleset.rules | map(attribute='destination_ports') | list == ['22', '80', '443', None, None]
+
+- name: Reorder, change one rule, add one, drop one
+  noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    rules:
+      - {direction: ingress, action: accept, protocol: icmp, source: {cidrs: [0.0.0.0/0]}}
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "443", source: {cidrs: ["::/0"]}}
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "8000-8100", source: {cidrs: [10.0.0.0/8]}}
+      - {direction: ingress, action: accept, protocol: tcp, destination_ports: "2222", source: {address_groups: ["{{ noderings_prefix }}-office"]}}
+      - {direction: ingress, action: drop, protocol: any, source: {cidrs: [0.0.0.0/0]}}
+  register: reordered
+  diff: true
+- ansible.builtin.assert:
+    that:
+      - reordered is changed
+      - reordered.ruleset.rules | map(attribute='destination_ports') | list == [None, '443', '8000-8100', '2222', None]
+      - reordered.ruleset.rules[0].id == created.ruleset.rules[3].id
+      - reordered.ruleset.rules[1].id == created.ruleset.rules[2].id
+
+- name: Leaving rules out does not touch them
+  noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+  register: untouched
+- ansible.builtin.assert:
+    that:
+      - "untouched is not changed"
+      - "untouched.ruleset.rules | length == 5"
+
+- name: Ports on ICMP (expected to fail)
+  noderings.cloud.firewall_ruleset: {name: "{{ noderings_prefix }}", rules: [{direction: ingress, action: accept, protocol: icmp, destination_ports: "80", source: {cidrs: [0.0.0.0/0]}}]}
+  register: icmp_ports
+  ignore_errors: true
+- name: A port list (expected to fail)
+  noderings.cloud.firewall_ruleset: {name: "{{ noderings_prefix }}", rules: [{direction: ingress, action: accept, protocol: tcp, destination_ports: "80,443", source: {cidrs: [0.0.0.0/0]}}]}
+  register: port_list
+  ignore_errors: true
+- name: Any-address mixed with another CIDR (expected to fail)
+  noderings.cloud.firewall_ruleset: {name: "{{ noderings_prefix }}", rules: [{direction: ingress, action: accept, source: {cidrs: [0.0.0.0/0, 10.0.0.0/8]}}]}
+  register: mixed_any
+  ignore_errors: true
+- name: Unknown address group (expected to fail)
+  noderings.cloud.firewall_ruleset: {name: "{{ noderings_prefix }}", rules: [{direction: ingress, action: accept, source: {address_groups: [no-such-group]}}]}
+  register: no_group
+  ignore_errors: true
+- ansible.builtin.assert:
+    that:
+      - "icmp_ports is failed"
+      - "port_list is failed"
+      - "mixed_any is failed"
+      - "no_group is failed"
+
+- name: Remove every rule
+  noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    rules: []
+  register: emptied
+- ansible.builtin.assert:
+    that:
+      - "emptied is changed"
+      - "emptied.ruleset.rules == []"
+- name: Delete
+  noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    state: absent
+  register: deleted
+- noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    state: absent
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "deleted is changed"
+      - "deleted_again is not changed"

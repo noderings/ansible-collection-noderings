@@ -1,0 +1,35 @@
+---
+- name: Hourly plan codes in the test city
+  noderings.cloud.marketplace_plan_info:
+    country: "{{ noderings_test_vm_country }}"
+    city: "{{ noderings_test_vm_city }}"
+    billing_type: usage
+    asset_type: virtual_machine
+  register: codes
+- ansible.builtin.assert:
+    that:
+      - noderings_test_vm_plan_code in (codes.plan_codes | map(attribute='plan_code') | list)
+      - codes.plan_codes | map(attribute='billing_type') | unique | list == ['usage']
+- name: Find the plan behind the code
+  noderings.cloud.marketplace_offer_info:
+    plan_code: "{{ noderings_test_vm_plan_code }}"
+    country: "{{ noderings_test_vm_country }}"
+    city: "{{ noderings_test_vm_city }}"
+    billing_type: usage
+  register: offer
+- name: One plan by ID
+  noderings.cloud.marketplace_plan_info:
+    plan_id: "{{ offer.offer.plan_id }}"
+  register: plan
+- ansible.builtin.assert:
+    that:
+      - plan.plan.plan_code == noderings_test_vm_plan_code
+      - plan.plan.billing_type == 'usage'
+      - plan.plan.prices | length > 0
+- name: An unknown plan fails
+  noderings.cloud.marketplace_plan_info:
+    plan_id: 00000000-0000-4000-8000-000000000000
+  register: missing
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: missing is failed

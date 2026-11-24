@@ -1,0 +1,15 @@
+---
+# A throw-away SSH key pair, for logging in to test virtual machines.
+- name: Generate the key pair
+  ansible.builtin.command: ssh-keygen -q -t ed25519 -N '' -C ansible-test -f {{ output_dir }}/id_test
+  args:
+    creates: "{{ output_dir }}/id_test"
+
+- name: Read the public key
+  ansible.builtin.set_fact:
+    noderings_test_ssh_private_key: "{{ output_dir }}/id_test"
+    noderings_test_ssh_public_key: "{{ lookup('ansible.builtin.file', output_dir ~ '/id_test.pub') }}"
+    noderings_test_guest_probe: "{{ role_path }}/files/guest_probe.sh"
+    noderings_test_ssh: >-
+      ssh -i {{ output_dir }}/id_test -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -o ConnectTimeout=10 -o BatchMode=yes

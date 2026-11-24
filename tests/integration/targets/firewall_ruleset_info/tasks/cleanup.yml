@@ -1,0 +1,8 @@
+---
+- noderings.cloud.firewall_ruleset:
+    name: "{{ noderings_prefix }}"
+    state: absent
+    force: true
+- noderings.cloud.firewall_address_group:
+    name: "{{ noderings_prefix }}-office"
+    state: absent

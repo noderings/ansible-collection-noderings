@@ -1,0 +1,37 @@
+---
+- name: Give the group the role (check mode)
+  noderings.cloud.role_assignment: {group: "{{ noderings_prefix }}", role: "{{ noderings_prefix }}"}
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that: result is changed
+- name: Give the group the role
+  noderings.cloud.role_assignment: {group: "{{ noderings_prefix }}", role: "{{ noderings_prefix }}"}
+  register: assigned
+- noderings.cloud.role_assignment: {group: "{{ noderings_prefix }}", role: "{{ noderings_prefix }}"}
+  register: same
+- ansible.builtin.assert:
+    that:
+      - assigned is changed
+      - same is not changed
+      - assigned.assignment.principal_type == 'group'
+      - assigned.assignment.role_name == noderings_prefix
+- name: Switch to a built-in role
+  noderings.cloud.role_assignment: {group: "{{ noderings_prefix }}", role: Viewer}
+  register: switched
+- ansible.builtin.assert:
+    that:
+      - "switched is changed"
+      - "switched.assignment.role_name == 'Viewer'"
+- name: An unknown role (expected to fail)
+  noderings.cloud.role_assignment: {group: "{{ noderings_prefix }}", role: no-such-role}
+  register: unknown
+  ignore_errors: true
+- name: Two principals at once (expected to fail)
+  noderings.cloud.role_assignment: {group: "{{ noderings_prefix }}", user: x@example.invalid, role: Viewer}
+  register: two
+  ignore_errors: true
+- ansible.builtin.assert:
+    that:
+      - "unknown is failed"
+      - "two is failed"

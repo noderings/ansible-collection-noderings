@@ -1,0 +1,46 @@
+---
+- name: Create with a service account (check mode)
+  noderings.cloud.group: {name: "{{ noderings_prefix }}", description: test, service_accounts: ["{{ noderings_test_service_account }}"]}
+  check_mode: true
+  register: result
+- ansible.builtin.assert:
+    that: result is changed
+- name: Create with a service account
+  noderings.cloud.group: {name: "{{ noderings_prefix }}", description: test, service_accounts: ["{{ noderings_test_service_account }}"]}
+  register: created
+- noderings.cloud.group: {name: "{{ noderings_prefix }}", description: test, service_accounts: ["{{ noderings_test_service_account }}"]}
+  register: same
+- ansible.builtin.assert:
+    that:
+      - created is changed
+      - same is not changed
+      - created.group.service_accounts == [noderings_test_service_account]
+- name: Change the description only
+  noderings.cloud.group: {name: "{{ noderings_prefix }}", description: other}
+  register: described
+- ansible.builtin.assert:
+    that:
+      - "described is changed"
+      - "described.group.service_accounts == [noderings_test_service_account]"
+- name: Remove the member
+  noderings.cloud.group: {name: "{{ noderings_prefix }}", service_accounts: []}
+  register: emptied
+- ansible.builtin.assert:
+    that:
+      - "emptied is changed"
+      - "emptied.group.service_accounts == []"
+- name: An unknown user (expected to fail)
+  noderings.cloud.group: {name: "{{ noderings_prefix }}", users: [nobody@example.invalid]}
+  register: unknown
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: unknown is failed
+- name: Delete
+  noderings.cloud.group: {name: "{{ noderings_prefix }}", state: absent}
+  register: deleted
+- noderings.cloud.group: {name: "{{ noderings_prefix }}", state: absent}
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "deleted is changed"
+      - "deleted_again is not changed"

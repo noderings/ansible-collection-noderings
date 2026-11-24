@@ -1,0 +1,5 @@
+---
+- noderings.cloud.dns_zone:
+    name: "{{ zone }}"
+    state: absent
+    force: true

@@ -1,0 +1,27 @@
+---
+- name: The test plan's provider
+  noderings.cloud.marketplace_offer_info:
+    plan_code: "{{ noderings_test_vm_plan_code }}"
+    country: "{{ noderings_test_vm_country }}"
+    city: "{{ noderings_test_vm_city }}"
+    billing_type: usage
+  register: offer
+- name: Its add-ons
+  noderings.cloud.marketplace_addon_info:
+    provider_id: "{{ offer.offer.provider_id }}"
+  register: result
+- ansible.builtin.assert:
+    that: result.addons is iterable
+- name: Only backups
+  noderings.cloud.marketplace_addon_info:
+    provider_id: "{{ offer.offer.provider_id }}"
+    addon_type: backup
+  register: backups
+- ansible.builtin.assert:
+    that: backups.addons | map(attribute='addon_type') | unique | list in ([], ['backup'])
+- name: A VM or a provider is required
+  noderings.cloud.marketplace_addon_info:
+  register: noargs
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: noargs is failed

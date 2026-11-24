@@ -1,0 +1,69 @@
+---
+- name: Create (check mode)
+  noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    public_key: "{{ noderings_test_ssh_public_key }}"
+  check_mode: true
+  register: result
+- noderings.cloud.ssh_key_info:
+    name: "{{ noderings_prefix }}"
+  register: info
+- ansible.builtin.assert:
+    that:
+      - "result is changed"
+      - "info.ssh_keys == []"
+
+- name: Create
+  noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    public_key: "{{ noderings_test_ssh_public_key }}"
+  register: created
+- ansible.builtin.assert:
+    that:
+      - created is changed
+      - created.ssh_key.id | length > 0
+      - created.ssh_key.name == noderings_prefix
+
+- name: Same key with another comment and a trailing newline is unchanged
+  noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    public_key: "{{ noderings_test_ssh_public_key | regex_replace(' ansible-test$', ' other') }}\n"
+  register: same
+- ansible.builtin.assert:
+    that: same is not changed
+
+- name: Another key under the same name replaces it
+  ansible.builtin.command: ssh-keygen -q -t ed25519 -N '' -C second -f {{ output_dir }}/id_second
+  args:
+    creates: "{{ output_dir }}/id_second"
+- noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    public_key: "{{ lookup('ansible.builtin.file', output_dir ~ '/id_second.pub') }}"
+  register: replaced
+  diff: true
+- ansible.builtin.assert:
+    that:
+      - "replaced is changed"
+      - "replaced.ssh_key.id != created.ssh_key.id"
+
+- name: public_key is required to create
+  noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}-x"
+  register: missing
+  ignore_errors: true
+- ansible.builtin.assert:
+    that: missing is failed
+
+- name: Delete
+  noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    state: absent
+  register: deleted
+- noderings.cloud.ssh_key:
+    name: "{{ noderings_prefix }}"
+    state: absent
+  register: deleted_again
+- ansible.builtin.assert:
+    that:
+      - "deleted is changed"
+      - "deleted_again is not changed"

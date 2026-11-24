@@ -194,18 +194,31 @@ ansible-test sanity --venv
 ansible-test units --venv
 ```
 
-The integration targets under `tests/integration/targets` run against the real API and create (and delete) real resources. They are marked `unsupported` so they never run by accident. Put their settings in `tests/integration/integration_config.yml` (it is git-ignored):
-
-```yaml
-noderings_api_token: ...                         # a service-account token for a test organization
-noderings_test_domain: example.com              # zones are created as ansible-test-xxxx.example.com
-noderings_test_service_account: my-ci-account   # IAM test adds and removes it from a test group
-```
-
-Then run them:
+Every module has an integration target named after it under `tests/integration/targets`
+(`virtual_machine`, `dns_record`, `inventory_noderings`…), the layout other cloud collections use.
+They call the real NodeRings API, so they are marked `unsupported` and never run by accident.
+Copy `tests/integration/integration_config.yml.template` to `tests/integration/integration_config.yml`
+(git-ignored) and fill it in, then pick what to run:
 
 ```bash
-ansible-test integration dns firewall iam --allow-unsupported --venv
+# Free: account, catalog, SSH keys, DNS, firewall, IAM. Creates and deletes test resources.
+ansible-test integration noderings/free/ --allow-unsupported --venv
+
+# Billed: each target orders a small usage-billed VM for a few minutes and deletes it.
+ansible-test integration noderings/billed/ --allow-unsupported --venv
+
+# One module
+ansible-test integration virtual_machine --allow-unsupported --venv
+```
+
+The `virtual_machine` target logs in to the VM over SSH after ordering and after a reinstall, and checks that
+the guest runs the expected OS and that cloud-init set the hostname, root SSH key, IPv4 and DNS. With
+`noderings_test_os_matrix: true` it reinstalls the VM through every distro and checks each one (about an hour).
+
+Unit tests (`tests/unit`) need no account; they run against an in-memory fake of the API:
+
+```bash
+ansible-test units --venv
 ```
 
 ## Support
