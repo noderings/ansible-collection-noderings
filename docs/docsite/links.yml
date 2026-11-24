@@ -1,0 +1,14 @@
+---
+edit_on_github:
+  repository: noderings/ansible-collection-noderings
+  branch: main
+  path_prefix: ''
+
+extra_links:
+  - description: Report an issue
+    url: https://github.com/noderings/ansible-collection-noderings/issues/new
+
+communication:
+  mailing_lists:
+    - topic: NodeRings support
+      email: partners@noderings.com

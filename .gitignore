@@ -5,3 +5,5 @@ __pycache__/
 .venv/
 *.retry
 tests/integration/integration_config.yml
+importer_result.json
+changelogs/.plugin-cache.yaml

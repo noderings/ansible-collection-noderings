@@ -30,3 +30,5 @@ build_ignore:
   - "*.tar.gz"
   - .venv
   - examples/*.retry
+  - importer_result.json
+  - changelogs/.plugin-cache.yaml
