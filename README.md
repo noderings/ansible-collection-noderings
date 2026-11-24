@@ -1,6 +1,6 @@
 # NodeRings Collection for Ansible
 
-`noderings.cloud` lets Ansible order and manage servers on [NodeRings](https://noderings.com), the marketplace where independent hosting providers sell VPS and game servers.
+`noderings.cloud` lets Ansible order and manage servers on [NodeRings](https://noderings.com), the marketplace where independent hosting providers sell compute, GPU, storage, network and more.
 
 With it you can:
 
