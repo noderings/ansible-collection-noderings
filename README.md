@@ -1,6 +1,13 @@
 # NodeRings Collection for Ansible
 
+[![CI](https://github.com/noderings/ansible-collection-noderings/actions/workflows/ci.yml/badge.svg)](https://github.com/noderings/ansible-collection-noderings/actions/workflows/ci.yml)
+[![Ansible Galaxy](https://img.shields.io/badge/galaxy-noderings.cloud-1A1918.svg?logo=ansible)](https://galaxy.ansible.com/ui/repo/published/noderings/cloud/)
+[![ansible-core](https://img.shields.io/badge/ansible--core-%E2%89%A5%202.16-1A1918.svg?logo=ansible)](meta/runtime.yml)
+[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+
 `noderings.cloud` lets Ansible order and manage servers on [NodeRings](https://noderings.com), the marketplace where independent hosting providers sell compute, GPU, storage, network and more.
+
+New to it? The step-by-step guide [Order and configure a VPS with one Ansible playbook](https://noderings.com/blog/ansible-vps) walks through a first run.
 
 With it you can:
 
