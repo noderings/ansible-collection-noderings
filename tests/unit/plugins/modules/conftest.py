@@ -52,6 +52,12 @@ def api(monkeypatch):
     return fake
 
 
+@contextlib.contextmanager
+def _nullcontext():
+    # contextlib.nullcontext() needs Python 3.7; the modules support 3.6.
+    yield
+
+
 @pytest.fixture
 def run(monkeypatch):
     """Run a module's main() with args; returns (result, failed)."""
@@ -64,7 +70,7 @@ def run(monkeypatch):
             ctx = patch_module_args(args)
         else:
             monkeypatch.setattr(basic, "_ANSIBLE_ARGS", to_bytes(json.dumps({"ANSIBLE_MODULE_ARGS": args})))
-            ctx = contextlib.nullcontext()
+            ctx = _nullcontext()
         with ctx:
             try:
                 module.main()

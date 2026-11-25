@@ -4,6 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    commit-message:
+      # "ci:" does not start a release by itself (see CONTRIBUTING.md).
+      prefix: "ci"
     groups:
       "github-actions":
         patterns:

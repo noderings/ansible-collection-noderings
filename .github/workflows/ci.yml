@@ -1,53 +1,120 @@
 name: CI
 
-on:
+"on":
   push:
     branches: [main]
   pull_request:
   schedule:
+    # Weekly, so the collection is re-tested against new ansible-test
+    # releases even when nothing is merged.
     - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  test:
-    name: ${{ matrix.test }} (ansible-core ${{ matrix.ansible }})
+  sanity:
+    # Runs ansible-test in its default container (the equivalent of
+    # `ansible-test sanity --docker`), so every Python version that each
+    # ansible-core release supports is checked.
+    name: Sanity (ansible-core ${{ matrix.ansible }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        test: [sanity, units]
-        ansible: ["stable-2.16", "stable-2.18", "stable-2.20", "devel"]
-        include:
-          - ansible: stable-2.16
-            python: "3.12"
-          - ansible: stable-2.18
-            python: "3.12"
-          - ansible: stable-2.20
-            python: "3.13"
-          - ansible: devel
-            python: "3.13"
+        # requires_ansible is >=2.16, so every release from 2.16 on is tested,
+        # plus devel to catch new checks early.
+        ansible:
+          - stable-2.16
+          - stable-2.17
+          - stable-2.18
+          - stable-2.19
+          - stable-2.20
+          - stable-2.21
+          - stable-2.22
+          - devel
     steps:
-      - uses: actions/checkout@v4
+      - uses: ansible-community/ansible-test-gh-action@release/v1
         with:
-          path: ansible_collections/noderings/cloud
-      - uses: actions/setup-python@v5
+          ansible-core-version: ${{ matrix.ansible }}
+          testing-type: sanity
+          coverage: never
+
+  units:
+    name: Units (ansible-core ${{ matrix.ansible }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ansible:
+          - stable-2.16
+          - stable-2.17
+          - stable-2.18
+          - stable-2.19
+          - stable-2.20
+          - stable-2.21
+          - stable-2.22
+          - devel
+    steps:
+      - uses: ansible-community/ansible-test-gh-action@release/v1
         with:
-          python-version: ${{ matrix.python }}
-      - name: Install ansible-core
-        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz
-      - name: ansible-test ${{ matrix.test }}
-        working-directory: ansible_collections/noderings/cloud
-        run: ansible-test ${{ matrix.test }} --venv --python ${{ matrix.python }} -v --color
+          ansible-core-version: ${{ matrix.ansible }}
+          testing-type: units
+          coverage: never
 
   changelog:
     name: Changelog fragments
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - run: pip install antsibull-changelog
       - run: antsibull-changelog lint
+      - run: antsibull-changelog lint-changelog-yaml changelogs/changelog.yaml
+
+  docs:
+    name: Documentation lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ansible_collections/noderings/cloud
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install ansible-core antsibull-docs
+      - name: antsibull-docs lint-collection-docs
+        working-directory: ansible_collections/noderings/cloud
+        env:
+          ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}
+        run: antsibull-docs lint-collection-docs --plugin-docs --validate-collection-refs=all .
+
+  build:
+    # Builds the tarball exactly as the release does and runs it through
+    # galaxy-importer, the same checks Ansible Galaxy runs on upload.
+    name: Build and Galaxy import check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install ansible-core galaxy-importer
+      - name: Build
+        run: ansible-galaxy collection build
+      - name: galaxy-importer
+        run: |
+          printf '[galaxy-importer]\nRUN_ANSIBLE_TEST = False\nRUN_ANSIBLE_LINT = True\n' > galaxy-importer.cfg
+          GALAXY_IMPORTER_CONFIG="$PWD/galaxy-importer.cfg" python -m galaxy_importer.main noderings-cloud-*.tar.gz
+      - uses: actions/upload-artifact@v7
+        with:
+          name: collection
+          path: noderings-cloud-*.tar.gz
+          if-no-files-found: error

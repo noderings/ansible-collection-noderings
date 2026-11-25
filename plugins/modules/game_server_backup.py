@@ -20,7 +20,7 @@ author:
 extends_documentation_fragment:
   - noderings.cloud.noderings
   - noderings.cloud.attributes
-  - noderings.cloud.noderings.WAIT
+  - noderings.cloud.noderings.wait
 attributes:
   check_mode:
     support: full

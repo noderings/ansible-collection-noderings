@@ -1,0 +1,4 @@
+---
+release_summary: >-
+  First release of the ``noderings.cloud`` collection. It orders and manages NodeRings virtual machines,
+  DNS zones and records, firewalls, SSH keys and access control, and adds a dynamic inventory of NodeRings servers.
