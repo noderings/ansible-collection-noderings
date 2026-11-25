@@ -1,0 +1,5 @@
+---
+modules:
+  # The modules run on the host that talks to the NodeRings API (usually
+  # localhost). They need Python 3; Python 2.7 is not supported.
+  python_requires: ">=3.6"

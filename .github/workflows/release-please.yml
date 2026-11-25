@@ -1,0 +1,102 @@
+name: release-please
+
+# Keeps one open release pull request that bumps galaxy.yml and writes
+# CHANGELOG.rst. Merging it tags the release, and the tag starts release.yml,
+# which publishes to Ansible Galaxy.
+#
+# Needs the organization's release bot GitHub App, because tags and pull
+# requests made with the workflow's own GITHUB_TOKEN do not start other
+# workflows:
+#   variable RELEASE_BOT_APP_ID (or RELEASE_BOT_CLIENT_ID) and
+#   secret RELEASE_BOT_PRIVATE_KEY.
+"on":
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.release.outputs.pr }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Check the release bot is set up
+        id: bot
+        env:
+          APP_ID: ${{ vars.RELEASE_BOT_APP_ID }}
+          CLIENT_ID: ${{ vars.RELEASE_BOT_CLIENT_ID }}
+          HAS_KEY: ${{ secrets.RELEASE_BOT_PRIVATE_KEY != '' }}
+        run: |
+          if { [ -n "${APP_ID}" ] || [ -n "${CLIENT_ID}" ]; } && [ "${HAS_KEY}" = "true" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=release-please skipped::Set the organization variable RELEASE_BOT_APP_ID and secret RELEASE_BOT_PRIVATE_KEY (see CONTRIBUTING.md, Releasing)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/create-github-app-token@v3
+        if: steps.bot.outputs.ready == 'true'
+        id: app
+        with:
+          # GitHub accepts either the App ID or the Client ID here.
+          client-id: ${{ vars.RELEASE_BOT_CLIENT_ID || vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+      - uses: googleapis/release-please-action@v5
+        if: steps.bot.outputs.ready == 'true'
+        id: release
+        with:
+          token: ${{ steps.app.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  changelog:
+    # Adds the antsibull-changelog commit to the release pull request, so
+    # CHANGELOG.rst and changelogs/changelog.yaml keep the format Ansible
+    # Galaxy and the Ansible community package expect.
+    name: CHANGELOG.rst for the release PR
+    needs: release-please
+    if: needs.release-please.outputs.pr != '' && needs.release-please.outputs.release_created != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          # GitHub accepts either the App ID or the Client ID here.
+          client-id: ${{ vars.RELEASE_BOT_CLIENT_ID || vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+          token: ${{ steps.app.outputs.token }}
+          path: ansible_collections/noderings/cloud
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install ansible-core antsibull-changelog
+      - name: antsibull-changelog release
+        working-directory: ansible_collections/noderings/cloud
+        env:
+          ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          version=$(python -c "import yaml; print(yaml.safe_load(open('galaxy.yml'))['version'])")
+          if python -c "import sys, yaml; sys.exit(0 if '${version}' in (yaml.safe_load(open('changelogs/changelog.yaml')).get('releases') or {}) else 1)"; then
+            echo "CHANGELOG.rst already has ${version}."
+            exit 0
+          fi
+          antsibull-changelog release --version "${version}"
+          user_id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git add -A CHANGELOG.rst changelogs
+          git commit -m "chore: changelog for ${version}"
+          git push

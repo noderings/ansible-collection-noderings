@@ -1,0 +1,80 @@
+name: Docs
+
+# Builds the collection documentation with antsibull-docs (the same tool that
+# builds docs.ansible.com) and, on main, publishes it to GitHub Pages:
+# https://noderings.github.io/ansible-collection-noderings/
+"on":
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      pages: ${{ steps.pages.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ansible_collections/noderings/cloud
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install antsibull-docs
+        run: pip install ansible-core "antsibull-docs>=2.0.0,<3.0.0"
+      - name: Build the docsite
+        env:
+          ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}
+        run: |
+          mkdir -p "${RUNNER_TEMP}/docsbuild"
+          antsibull-docs sphinx-init --use-current --squash-hierarchy --lenient --fail-on-error \
+            --dest-dir "${RUNNER_TEMP}/docsbuild" \
+            --project noderings.cloud --copyright NodeRings \
+            --title "NodeRings Collection for Ansible" --html-short-title noderings.cloud \
+            noderings.cloud
+          cd "${RUNNER_TEMP}/docsbuild"
+          pip install -r requirements.txt
+          ./build.sh
+          touch build/html/.nojekyll
+          mv build/html "${GITHUB_WORKSPACE}/docs-html"
+      - name: Is GitHub Pages turned on?
+        id: pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .build_type 2>/dev/null | grep -qx workflow; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Docs not published::Turn on GitHub Pages (Settings > Pages > Source: GitHub Actions) to publish the docs."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-pages-artifact@v5
+        if: steps.pages.outputs.enabled == 'true'
+        with:
+          path: docs-html
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.pages == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

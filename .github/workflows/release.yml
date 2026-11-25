@@ -1,37 +1,105 @@
 name: Release
 
-# Push a tag such as v0.1.0 whose version matches galaxy.yml.
-on:
+# Runs when a version tag is pushed. release-please pushes it when its release
+# pull request is merged (see release-please.yml); a maintainer can also push
+# one by hand. Tags are the bare version, exactly as in galaxy.yml (0.1.0, not
+# v0.1.0), as the Ansible community package requires.
+"on":
   push:
-    tags: ["v*"]
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)publish, for example 0.1.0
+        required: true
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
-  release:
+  sanity:
+    # The release commit must pass sanity before anything is published.
+    name: Sanity (ansible-core ${{ matrix.ansible }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ansible: [stable-2.16, stable-2.22]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ansible-community/ansible-test-gh-action@release/v1
         with:
-          python-version: "3.12"
+          ansible-core-version: ${{ matrix.ansible }}
+          testing-type: sanity
+          coverage: never
+          git-checkout-ref: ${{ inputs.tag || github.ref }}
+
+  release:
+    needs: sanity
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # create the GitHub release and upload the tarball
+      id-token: write       # sign the build provenance attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
       - name: Install ansible-core
         run: pip install ansible-core
       - name: Check the tag matches galaxy.yml
         run: |
           version=$(python -c "import yaml; print(yaml.safe_load(open('galaxy.yml'))['version'])")
-          test "v${version}" = "${GITHUB_REF_NAME}" || { echo "galaxy.yml says ${version}, tag is ${GITHUB_REF_NAME}"; exit 1; }
+          if [ "${version}" != "${TAG}" ]; then
+            echo "::error::galaxy.yml says ${version}, but the tag is ${TAG}."
+            exit 1
+          fi
       - name: Build
         run: ansible-galaxy collection build
-      - name: Create GitHub release
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: noderings-cloud-*.tar.gz
+      - name: Create or update the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="Release notes are in CHANGELOG.rst: https://github.com/noderings/ansible-collection-noderings/blob/${GITHUB_REF_NAME}/CHANGELOG.rst"
-          gh release create "${GITHUB_REF_NAME}" noderings-cloud-*.tar.gz --title "${GITHUB_REF_NAME}" --notes "${notes}"
+          notes="Release notes: https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/CHANGELOG.rst"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            # release-please already created the release; attach the tarball.
+            gh release upload "${TAG}" noderings-cloud-*.tar.gz --clobber
+          else
+            gh release create "${TAG}" noderings-cloud-*.tar.gz --title "${TAG}" --notes "${notes}" --verify-tag
+          fi
       - name: Publish to Ansible Galaxy
         env:
           GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
-        if: env.GALAXY_API_KEY != ''
-        run: ansible-galaxy collection publish noderings-cloud-*.tar.gz --api-key "${GALAXY_API_KEY}"
+        run: |
+          if [ -z "${GALAXY_API_KEY}" ]; then
+            echo "::warning title=Not published to Galaxy::The GALAXY_API_KEY secret is not set, so ${TAG} was not uploaded to Ansible Galaxy. Add the secret, then run this workflow again (Actions > Release > Run workflow, tag ${TAG})."
+            exit 0
+          fi
+          url="https://galaxy.ansible.com/api/v3/plugin/ansible/content/published/collections/index/noderings/cloud/versions/${TAG}/"
+          if curl -fsS -o /dev/null "${url}"; then
+            echo "::notice::noderings.cloud ${TAG} is already on Ansible Galaxy; nothing to upload."
+            exit 0
+          fi
+          ansible-galaxy collection publish noderings-cloud-*.tar.gz --api-key "${GALAXY_API_KEY}"
+          {
+            echo "### Published to Ansible Galaxy"
+            echo
+            echo "https://galaxy.ansible.com/ui/repo/published/noderings/cloud/"
+            echo
+            echo '```'
+            echo "ansible-galaxy collection install noderings.cloud:==${TAG}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,35 +1,51 @@
 ---
+# Collection metadata for Ansible Galaxy:
+# https://docs.ansible.com/ansible/latest/dev_guide/collections_galaxy_meta.html
 namespace: noderings
 name: cloud
-version: 0.1.0
+# Bumped by release-please in the release pull request; do not edit by hand.
+version: 0.1.0 # x-release-please-version
 readme: README.md
 authors:
-  - Shaygun <partners@noderings.com>
+  - NodeRings <partners@noderings.com>
 description: >-
-  Order and manage resources on the NodeRings infrastructure marketplace
-  (compute, DNS, firewalls, IAM, game servers and more),
-  and build a dynamic inventory from your NodeRings servers.
+  Order and manage virtual machines, DNS zones and records, firewalls, SSH keys
+  and access control on the NodeRings infrastructure marketplace, and use your
+  NodeRings servers as a dynamic Ansible inventory.
 license:
   - GPL-3.0-or-later
 tags:
   - cloud
   - noderings
   - vps
+  - compute
+  - virtualization
   - dns
+  - dnssec
   - firewall
-  - infrastructure
+  - security
+  - iam
   - inventory
+  - infrastructure
+  - marketplace
+  - hosting
+  - linux
 dependencies: {}
 repository: https://github.com/noderings/ansible-collection-noderings
-documentation: https://github.com/noderings/ansible-collection-noderings#readme
+documentation: https://noderings.github.io/ansible-collection-noderings/
 homepage: https://noderings.com
 issues: https://github.com/noderings/ansible-collection-noderings/issues
 build_ignore:
   - .github
   - .gitignore
+  - .release-please-manifest.json
+  - release-please-config.json
+  - version.txt
   - tests/output
   - "*.tar.gz"
   - .venv
+  - docs/build
   - examples/*.retry
   - importer_result.json
   - changelogs/.plugin-cache.yaml
+  - tests/integration/integration_config.yml

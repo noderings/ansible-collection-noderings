@@ -6,9 +6,16 @@ edit_on_github:
 
 extra_links:
   - description: Report an issue
-    url: https://github.com/noderings/ansible-collection-noderings/issues/new
+    url: https://github.com/noderings/ansible-collection-noderings/issues/new/choose
+  - description: NodeRings documentation
+    url: https://docs.noderings.com
+  - description: NodeRings
+    url: https://noderings.com
 
 communication:
+  forums:
+    - topic: Ansible Forum Get Help category (tag your post with "cloud")
+      url: https://forum.ansible.com/tags/c/help/6/cloud
   mailing_lists:
-    - topic: NodeRings support
-      email: partners@noderings.com
+    - topic: NodeRings partner and integration questions (partners@noderings.com)
+      url: mailto:partners@noderings.com

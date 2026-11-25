@@ -24,7 +24,26 @@ Every module supports check mode, and most support diff mode, so `--check --diff
 ansible-galaxy collection install noderings.cloud
 ```
 
-You need ansible-core 2.16 or newer and Python 3.9 or newer. The collection has no Python dependencies.
+Or list it in a `requirements.yml` file and run `ansible-galaxy collection install -r requirements.yml`:
+
+```yaml
+collections:
+  - name: noderings.cloud
+    version: ">=0.1.0"
+```
+
+To try the latest unreleased code, install it from GitHub:
+`ansible-galaxy collection install git+https://github.com/noderings/ansible-collection-noderings.git,main`.
+
+Upgrade with `ansible-galaxy collection install noderings.cloud --upgrade`.
+
+## Requirements
+
+- **ansible-core 2.16 or newer.** CI tests every release from 2.16 to 2.22, and `devel`.
+- **Python.** The modules run on the host that talks to the NodeRings API, usually `localhost`, and support
+  Python 3.6 and newer there. Python 2.7 is not supported. The inventory plugin runs inside Ansible itself,
+  so it supports the same Python versions as your ansible-core.
+- **No Python dependencies.** The collection uses only the standard library and ansible-core.
 
 ## Connect
 
@@ -180,7 +199,9 @@ To find plan codes, cities and providers:
 | Account | `organization_info`, `billing_info` |
 | Inventory | `noderings` |
 
-Read a module's full documentation with `ansible-doc noderings.cloud.<module>`, for example `ansible-doc noderings.cloud.virtual_machine`.
+Read a module's full documentation with `ansible-doc noderings.cloud.<module>`, for example `ansible-doc noderings.cloud.virtual_machine`,
+or browse it on the [collection documentation site](https://noderings.github.io/ansible-collection-noderings/)
+and on [Ansible Galaxy](https://galaxy.ansible.com/ui/repo/published/noderings/cloud/docs/).
 
 ## Good to know
 
@@ -228,14 +249,36 @@ Unit tests (`tests/unit`) need no account; they run against an in-memory fake of
 ansible-test units --venv
 ```
 
-## Support
+## Communication
 
-Open an issue at https://github.com/noderings/ansible-collection-noderings/issues for bugs and feature requests.
-For questions about your NodeRings account or servers, contact NodeRings support from the console.
+- **Questions and help:** you are welcome to ask in the [Get Help](https://forum.ansible.com/tags/c/help/6/cloud)
+  category of the [Ansible Forum](https://forum.ansible.com/). Tag your post with `cloud` so the people who follow
+  cloud collections see it.
+- **Bugs and feature requests:** open an issue at https://github.com/noderings/ansible-collection-noderings/issues.
+  Anyone can open one, and pull requests are welcome too.
+- **News:** releases are listed on [GitHub](https://github.com/noderings/ansible-collection-noderings/releases).
+  For news about Ansible itself, subscribe to [The Bullhorn](https://docs.ansible.com/ansible/devel/community/communication.html#the-bullhorn),
+  the Ansible contributor newsletter.
+- **Your NodeRings account or servers:** contact NodeRings support from the console.
+- **Security problems:** see [SECURITY.md](SECURITY.md); please do not open a public issue.
 
 ## Release notes
 
-See [CHANGELOG.rst](CHANGELOG.rst).
+See [CHANGELOG.rst](CHANGELOG.rst) and the [GitHub releases](https://github.com/noderings/ansible-collection-noderings/releases).
+
+## Releases and versioning
+
+The collection follows [Semantic Versioning](https://semver.org/):
+
+- **Patch** releases (0.1.x) only fix bugs and documentation.
+- **Minor** releases (0.x.0) add modules, options and features, and may deprecate things. They do not remove
+  anything or change existing behavior.
+- **Major** releases remove what was deprecated in an earlier release, or change behavior on purpose.
+  Deprecations are announced in the changelog at least one minor release before the removal.
+
+Every release is a git tag with exactly the Galaxy version (for example `0.1.0`), and the tarball on Galaxy
+is built from that tag by the [Release workflow](.github/workflows/release.yml). The steps are in
+[CONTRIBUTING.md](CONTRIBUTING.md#releasing).
 
 ## Contributing and code of conduct
 
