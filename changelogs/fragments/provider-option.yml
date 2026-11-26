@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - virtual_machine - add the ``provider`` option, which limits the offers to one hosting provider given by its provider ID, storefront slug or name (case-insensitive).
+  - game_server - add the ``provider`` option, which limits the offers to one hosting provider given by its provider ID, storefront slug or name (case-insensitive).
+  - marketplace_offer_info - add the ``provider`` option, which limits the offers to one hosting provider given by its provider ID, storefront slug or name (case-insensitive).

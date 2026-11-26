@@ -52,10 +52,18 @@ options:
     choices: [usage, subscription, free]
   asset_type:
     description:
-      - What is ordered. Only checked when the provider is known (O(provider_id) or O(storefront_slug)).
+      - What is ordered. Only checked when the provider is known (O(provider_id), O(storefront_slug), or O(provider)
+        given as an ID or storefront slug).
     type: str
     choices: [virtual_machine, game_server]
     default: virtual_machine
+  provider:
+    description:
+      - Only offers from this hosting provider, given by its provider ID, its storefront slug
+        (for example C(acme-hosting)) or its name (for example C(Acme Hosting), in any case).
+      - A name that more than one provider uses fails; give the provider ID or storefront slug then.
+      - Mutually exclusive with O(provider_id) and O(storefront_slug).
+    type: str
   provider_id:
     description:
       - Only offers from this provider.
@@ -98,6 +106,15 @@ EXAMPLES = r"""
     billing_type: usage
     require_capabilities: [guest_firewall]
   register: found
+
+- name: Offers from one provider, by name
+  noderings.cloud.marketplace_offer_info:
+    plan_code: SC-GC-1C-1G-20
+    country: United States
+    city: Ashburn
+    billing_type: usage
+    provider: Acme Hosting
+  register: acme
 
 - name: Order exactly that offer
   noderings.cloud.virtual_machine:
@@ -163,6 +180,7 @@ def main():
         city=dict(type="str", required=True),
         billing_type=dict(type="str", choices=["usage", "subscription", "free"]),
         asset_type=dict(type="str", default="virtual_machine", choices=["virtual_machine", "game_server"]),
+        provider=dict(type="str"),
         provider_id=dict(type="str"),
         storefront_slug=dict(type="str"),
         require_capabilities=dict(type="list", elements="str", default=[]),
@@ -170,18 +188,20 @@ def main():
         sort=dict(type="str", default="price", choices=["price", "rating"]),
         fail_if_none=dict(type="bool", default=True),
     )
-    module = AnsibleModule(argument_spec=argument_spec, mutually_exclusive=[("provider_id", "storefront_slug")], supports_check_mode=True)
+    module = AnsibleModule(argument_spec=argument_spec, mutually_exclusive=[("provider", "provider_id", "storefront_slug")], supports_check_mode=True)
     nr = NodeRingsModule(module)
     p = module.params
     try:
         offers, located = find_offers(nr.client, p["plan_code"], p["country"], p["city"], billing_type=p["billing_type"],
                                       asset_type=p["asset_type"], provider_id=p["provider_id"], storefront_slug=p["storefront_slug"],
-                                      require_capabilities=p["require_capabilities"], require_ipv6=p["require_ipv6"], sort=p["sort"])
+                                      require_capabilities=p["require_capabilities"], require_ipv6=p["require_ipv6"], sort=p["sort"],
+                                      provider=p["provider"])
     except (NodeRingsError, NoOfferError) as e:
         nr.fail("looking up offers", e)
     views = [offer_view(o) for o in offers]
     if not views and p["fail_if_none"]:
-        module.fail_json(msg=no_offer_message(p["plan_code"], p["country"], p["city"], p["billing_type"], located))
+        module.fail_json(msg=no_offer_message(p["plan_code"], p["country"], p["city"], p["billing_type"], located,
+                                              p["provider"] or p["provider_id"] or p["storefront_slug"]))
     module.exit_json(changed=False, offer=views[0] if views else {}, offers=views)
 
 

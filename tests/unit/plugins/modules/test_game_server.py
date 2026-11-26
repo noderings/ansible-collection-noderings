@@ -7,8 +7,11 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+import pytest
+
 from ansible_collections.noderings.cloud.plugins.modules import game_server
 from ansible_collections.noderings.cloud.tests.unit.plugins.modules.game_server_fakeapi import ORDER, game_api
+from ansible_collections.noderings.cloud.tests.unit.plugins.modules.market_fakeapi import ACME_ID, market_routes
 
 
 def test_order_installs_and_starts(api, run):
@@ -63,3 +66,35 @@ def test_game_change_needs_permission(api, run):
     r = run(game_server, dict(name="survival", game="Valheim"))
     assert not r["changed"] and not r.get("failed")
     assert not any(p.endswith(":changeGame") for m, p in api.writes())
+
+
+GS_BY_CODE = dict(((k, v) for k, v in ORDER.items() if k != "plan_id"),
+                  plan_code="SC-GC-1C-1G-20", country="United States", city="Ashburn", billing_type="usage")
+
+
+def ordered_plans(api):
+    return [b["planId"] for m, p, q, b in api.calls if m == "POST" and p == "/v1/game-servers"]
+
+
+@pytest.mark.parametrize("provider", [ACME_ID, "acme-hosting", "acme hosting"])
+def test_order_from_the_named_provider(api, run, provider):
+    game_api(api)
+    market_routes(api, asset_type="ASSET_TYPE_GAME_SERVER")
+    r = run(game_server, dict(GS_BY_CODE, provider=provider))
+    assert r["changed"] and not r.get("failed"), r
+    assert ordered_plans(api) == ["plan-acme"]
+
+
+def test_order_without_a_provider_takes_the_cheapest(api, run):
+    game_api(api)
+    market_routes(api, asset_type="ASSET_TYPE_GAME_SERVER")
+    r = run(game_server, GS_BY_CODE)
+    assert r["changed"] and ordered_plans(api) == ["plan-cheap"]
+
+
+def test_order_fails_for_an_unknown_provider(api, run):
+    game_api(api)
+    market_routes(api, asset_type="ASSET_TYPE_GAME_SERVER")
+    r = run(game_server, dict(GS_BY_CODE, provider="Nobody Hosting"))
+    assert r["failed"] and "from provider Nobody Hosting" in r["msg"]
+    assert ordered_plans(api) == []

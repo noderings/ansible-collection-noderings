@@ -78,6 +78,15 @@ options:
       - Strongly recommended with O(plan_code); without it each provider offers one plan of its choice.
     type: str
     choices: [usage, subscription, free]
+  provider:
+    description:
+      - Only consider offers from this hosting provider, given by its provider ID, its storefront slug
+        (for example C(acme-hosting)) or its name (for example C(Acme Hosting), in any case).
+      - A name that more than one provider uses fails; give the provider ID or storefront slug then.
+      - Without a provider the module picks the best offer from any provider (see O(sort)), so the provider
+        can change from one order to the next. Set this to keep it fixed.
+      - Mutually exclusive with O(provider_id) and O(storefront_slug).
+    type: str
   provider_id:
     description:
       - Only consider offers from this hosting provider.
@@ -171,6 +180,18 @@ EXAMPLES = r"""
     firewall_ruleset: web
     state: running
   register: vm
+
+- name: Order the same size from one provider, by its storefront slug
+  noderings.cloud.virtual_machine:
+    hostname: web-2
+    plan_code: SC-GC-1C-1G-20
+    country: United States
+    city: Ashburn
+    billing_type: usage
+    provider: acme-hosting
+    distro: ubuntu_24_04
+    ssh_keys: [laptop]
+    state: running
 
 - name: Wait for SSH
   ansible.builtin.wait_for:
@@ -307,11 +328,12 @@ class VirtualMachine(NodeRingsModule):
             offers, located = find_offers(
                 self.client, p["plan_code"], p["country"], p["city"], billing_type=p["billing_type"],
                 provider_id=p["provider_id"], storefront_slug=p["storefront_slug"], require_capabilities=caps,
-                require_ipv6=p["require_ipv6"], sort=p["sort"])
+                require_ipv6=p["require_ipv6"], sort=p["sort"], provider=p["provider"])
         except (NodeRingsError, NoOfferError) as e:
             self.fail("looking up offers for %s" % p["plan_code"], e)
         if not offers:
-            self.module.fail_json(msg=no_offer_message(p["plan_code"], p["country"], p["city"], p["billing_type"], located))
+            self.module.fail_json(msg=no_offer_message(p["plan_code"], p["country"], p["city"], p["billing_type"], located,
+                                                       p["provider"] or p["provider_id"] or p["storefront_slug"]))
         best = offers[0]
         return best["plan_id"], best["region_id"], offer_view(best)
 
@@ -631,6 +653,7 @@ def main():
         country=dict(type="str"),
         city=dict(type="str"),
         billing_type=dict(type="str", choices=["usage", "subscription", "free"]),
+        provider=dict(type="str"),
         provider_id=dict(type="str"),
         storefront_slug=dict(type="str"),
         require_capabilities=dict(type="list", elements="str", default=[]),
@@ -652,7 +675,7 @@ def main():
     module = AnsibleModule(
         argument_spec=argument_spec,
         required_one_of=[("hostname", "id")],
-        mutually_exclusive=[("plan_id", "plan_code"), ("provider_id", "storefront_slug")],
+        mutually_exclusive=[("plan_id", "plan_code"), ("provider", "provider_id", "storefront_slug")],
         required_together=[("plan_id", "region_id"), ("plan_code", "country", "city")],
         supports_check_mode=True,
     )
