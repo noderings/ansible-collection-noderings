@@ -158,7 +158,9 @@ When you give `virtual_machine` a `plan_code`, `country` and `city`, it picks an
 2. It drops providers that lack anything in `require_capabilities` (for example `guest_firewall`, which is added for you when you set `firewall_ruleset`), and, with `require_ipv6`, offers without IPv6.
 3. It sorts the rest by compute price, or by provider rating with `sort: rating`, and orders the first.
 
-Pin a provider with `provider_id` or `storefront_slug`. To see the offers first, or to order one exact offer, use `marketplace_offer_info` and pass its `plan_id` and `region_id`:
+Without a provider the module takes the best offer from any provider, so the provider can change from one order to the next. Pin it with `provider`, which takes the provider's ID, its storefront slug (such as `acme-hosting`) or its name (`Acme Hosting`, in any case); a name that more than one provider uses fails, so give the ID or slug then. `game_server` and `marketplace_offer_info` take `provider` too. The older `provider_id` and `storefront_slug` options still work.
+
+To see the offers first, or to order one exact offer, use `marketplace_offer_info` and pass its `plan_id` and `region_id`:
 
 ```yaml
 - noderings.cloud.marketplace_offer_info:

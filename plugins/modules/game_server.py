@@ -75,6 +75,14 @@ options:
       - Billing type of the offer when using O(plan_code).
     type: str
     choices: [usage, subscription, free]
+  provider:
+    description:
+      - Only consider offers from this hosting provider, given by its provider ID, its storefront slug
+        (for example C(acme-hosting)) or its name (for example C(Acme Hosting), in any case).
+      - A name that more than one provider uses fails; give the provider ID or storefront slug then.
+      - Without a provider the module picks the best offer from any provider (see O(sort)).
+      - Mutually exclusive with O(provider_id).
+    type: str
   provider_id:
     description:
       - Only consider offers from this provider.
@@ -188,11 +196,12 @@ class GameServer(NodeRingsModule):
             return p["plan_id"], p["region_id"]
         try:
             offers, located = find_offers(self.client, p["plan_code"], p["country"], p["city"], billing_type=p["billing_type"],
-                                          asset_type="game_server", provider_id=p["provider_id"], sort=p["sort"])
+                                          asset_type="game_server", provider_id=p["provider_id"], sort=p["sort"], provider=p["provider"])
         except (NodeRingsError, NoOfferError) as e:
             self.fail("looking up offers for %s" % p["plan_code"], e)
         if not offers:
-            self.module.fail_json(msg=no_offer_message(p["plan_code"], p["country"], p["city"], p["billing_type"], located))
+            self.module.fail_json(msg=no_offer_message(p["plan_code"], p["country"], p["city"], p["billing_type"], located,
+                                                       p["provider"] or p["provider_id"]))
         return offers[0]["plan_id"], offers[0]["region_id"]
 
     def resolve_game(self, plan_id):
@@ -382,6 +391,7 @@ def main():
         country=dict(type="str"),
         city=dict(type="str"),
         billing_type=dict(type="str", choices=["usage", "subscription", "free"]),
+        provider=dict(type="str"),
         provider_id=dict(type="str"),
         sort=dict(type="str", default="price", choices=["price", "rating"]),
         game=dict(type="str"),
@@ -396,7 +406,7 @@ def main():
     module = AnsibleModule(
         argument_spec=argument_spec,
         required_one_of=[("name", "id")],
-        mutually_exclusive=[("plan_id", "plan_code")],
+        mutually_exclusive=[("plan_id", "plan_code"), ("provider", "provider_id")],
         required_together=[("plan_code", "country", "city")],
         supports_check_mode=True,
     )

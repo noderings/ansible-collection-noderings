@@ -9,7 +9,9 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-from ansible_collections.noderings.cloud.plugins.module_utils.noderings import trim_enum
+import re
+
+from ansible_collections.noderings.cloud.plugins.module_utils.noderings import NodeRingsError, is_not_found, trim_enum
 
 BILLING_TYPES = {"usage": "BILLING_TYPE_USAGE", "subscription": "BILLING_TYPE_SUBSCRIPTION", "free": "BILLING_TYPE_FREE"}
 ASSET_TYPES = {"virtual_machine": "ASSET_TYPE_VM", "game_server": "ASSET_TYPE_GAME_SERVER"}
@@ -19,6 +21,7 @@ OFFER_SPEC = dict(
     country=dict(type="str"),
     city=dict(type="str"),
     billing_type=dict(type="str", choices=list(BILLING_TYPES)),
+    provider=dict(type="str"),
     provider_id=dict(type="str"),
     storefront_slug=dict(type="str"),
     require_capabilities=dict(type="list", elements="str", default=[]),
@@ -29,6 +32,33 @@ OFFER_SPEC = dict(
 
 class NoOfferError(Exception):
     pass
+
+
+_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_SLUG_RE = re.compile(r"^[a-z0-9-]{1,80}$")
+
+
+def resolve_provider(client, provider):
+    """Turn a provider ID, storefront slug or provider name into ``(provider_id, name)``.
+
+    An ID, or a slug that names a public storefront, gives the provider ID. Anything
+    else is a provider name, matched without regard to case against the offers.
+    """
+    value = (provider or "").strip()
+    if not value:
+        return None, None
+    if _UUID_RE.match(value):
+        return value, None
+    if _SLUG_RE.match(value):
+        try:
+            sf = client.get_public_storefront(value)
+        except NodeRingsError as e:
+            if not is_not_found(e):
+                raise
+            sf = None
+        if sf and sf.get("providerId"):
+            return sf["providerId"], None
+    return None, value
 
 
 def _amount(p):
@@ -72,9 +102,14 @@ def price_view(p):
 
 
 def find_offers(client, plan_code, country, city, billing_type=None, asset_type="virtual_machine", provider_id=None,
-                storefront_slug=None, require_capabilities=None, require_ipv6=False, sort="price"):
+                storefront_slug=None, require_capabilities=None, require_ipv6=False, sort="price", provider=None):
     """Return (offers, located) where offers are sorted best first and located
-    counts the offers that matched the location before capability/IPv6 filters."""
+    counts the offers that matched the location before capability/IPv6 filters.
+
+    ``provider`` is a provider ID, storefront slug or provider name; see resolve_provider()."""
+    provider_name = None
+    if provider and not (provider_id or storefront_slug):
+        provider_id, provider_name = resolve_provider(client, provider)
     billing = BILLING_TYPES.get(billing_type or "", "")
     asset = ASSET_TYPES.get(asset_type or "virtual_machine", "ASSET_TYPE_VM")
     if storefront_slug:
@@ -114,6 +149,11 @@ def find_offers(client, plan_code, country, city, billing_type=None, asset_type=
                 capabilities=p.get("capabilities") or [], ipv6=bool(p.get("ipv6AvailableInFilteredRegion")),
                 rating=float(p.get("rating") or 0), total_reviews=int(p.get("totalReviews") or 0), prices=p.get("planPrices") or [],
             ))
+    if provider_name:
+        want = provider_name.lower()
+        found = [o for o in found if (o["provider_name"] or "").strip().lower() == want]
+        if len(set(o["provider_id"] for o in found)) > 1:
+            raise NoOfferError("more than one provider is named %s; give its provider ID or storefront slug instead" % provider_name)
     located = len(found)
     need = set(require_capabilities or [])
     out = [o for o in found if need.issubset(set(o["capabilities"])) and (not require_ipv6 or o["ipv6"])]
@@ -137,8 +177,10 @@ def offer_view(o):
     )
 
 
-def no_offer_message(plan_code, country, city, billing_type, located):
+def no_offer_message(plan_code, country, city, billing_type, located, provider=None):
     msg = "No offer for plan code %s in %s, %s" % (plan_code, city, country)
+    if provider:
+        msg += " from provider %s" % provider
     if billing_type:
         msg += " with billing type %s" % billing_type
     msg += "."

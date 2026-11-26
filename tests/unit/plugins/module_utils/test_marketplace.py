@@ -7,7 +7,10 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
+import pytest
+
 from ansible_collections.noderings.cloud.plugins.module_utils import marketplace
+from ansible_collections.noderings.cloud.plugins.module_utils.noderings import NodeRingsError
 
 
 def test_main_price_prefers_compute_meter():
@@ -40,3 +43,48 @@ def test_find_offers_filters_and_sorts():
     offers, located = marketplace.find_offers(m, "X", "Germany", "Frankfurt", sort="rating")
     assert [o["provider_name"] for o in offers] == ["c", "a", "b"]
     assert offers[0]["region_id"] == "region-c"
+
+
+class FakeStorefronts(FakeMarket):
+    def __init__(self, providers, error=None):
+        super(FakeStorefronts, self).__init__(providers)
+        self.error = error
+
+    def get_public_storefront(self, slug):
+        if self.error:
+            raise self.error
+        if slug == "acme":
+            return {"providerId": "acme-id"}
+        raise NodeRingsError(404, 5, "storefront not found")
+
+
+def test_resolve_provider():
+    m = FakeStorefronts([])
+    assert marketplace.resolve_provider(m, "33333333-3333-3333-3333-333333333333") == ("33333333-3333-3333-3333-333333333333", None)
+    assert marketplace.resolve_provider(m, " acme ") == ("acme-id", None)
+    assert marketplace.resolve_provider(m, "acme-hosting") == (None, "acme-hosting")  # no such storefront: a name
+    assert marketplace.resolve_provider(m, "Acme Hosting") == (None, "Acme Hosting")
+    assert marketplace.resolve_provider(m, "  ") == (None, None)
+
+
+def test_resolve_provider_propagates_storefront_errors_other_than_not_found():
+    m = FakeStorefronts([], error=NodeRingsError(500, 13, "boom"))
+    with pytest.raises(NodeRingsError):
+        marketplace.resolve_provider(m, "acme")
+
+
+def test_find_offers_by_provider_name():
+    m = FakeStorefronts([provider("a", "0.02", []), provider("b", "0.01", [])])
+    offers, located = marketplace.find_offers(m, "X", "Germany", "Frankfurt", provider=" A ")
+    assert located == 1 and [o["provider_name"] for o in offers] == ["a"]
+    offers, located = marketplace.find_offers(m, "X", "Germany", "Frankfurt", provider="nobody")
+    assert (offers, located) == ([], 0)
+    twin = dict(provider("a", "0.03", []), organizationId="other")
+    m = FakeStorefronts([provider("a", "0.02", []), twin])
+    with pytest.raises(marketplace.NoOfferError, match="more than one provider is named A"):
+        marketplace.find_offers(m, "X", "Germany", "Frankfurt", provider="A")
+
+
+def test_no_offer_message_names_the_provider():
+    msg = marketplace.no_offer_message("X", "Germany", "Frankfurt", None, 0, "Acme Hosting")
+    assert msg.startswith("No offer for plan code X in Frankfurt, Germany from provider Acme Hosting.")
