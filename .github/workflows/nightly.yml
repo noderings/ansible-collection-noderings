@@ -1,0 +1,80 @@
+# Nightly live integration tests against the NodeRings API (noderings/free/
+# only: account, catalog, SSH keys, DNS, firewall, IAM). Runs only when the
+# NODERINGS_TOKEN secret is set; otherwise the job skips with a notice and
+# succeeds. Billed VM targets are not run. Targets create and delete their
+# own test resources. Optional secrets: NODERINGS_TEST_DOMAIN (or
+# NODERINGS_ACC_DOMAIN) for DNS zones, NODERINGS_TEST_SERVICE_ACCOUNT for
+# IAM targets.
+name: Nightly live API
+
+"on":
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: Integration (free)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NODERINGS_TOKEN: ${{ secrets.NODERINGS_TOKEN }}
+      NODERINGS_TEST_DOMAIN: ${{ secrets.NODERINGS_TEST_DOMAIN }}
+      NODERINGS_ACC_DOMAIN: ${{ secrets.NODERINGS_ACC_DOMAIN }}
+      NODERINGS_TEST_SERVICE_ACCOUNT: ${{ secrets.NODERINGS_TEST_SERVICE_ACCOUNT }}
+    steps:
+      - name: Skip when NODERINGS_TOKEN is not set
+        if: env.NODERINGS_TOKEN == ''
+        run: echo "::notice title=Live tests skipped::Add the repository secret NODERINGS_TOKEN (a service account token for a test organization) to run them."
+      - uses: actions/checkout@v7
+        if: env.NODERINGS_TOKEN != ''
+        with:
+          path: ansible_collections/noderings/cloud
+      - uses: actions/setup-python@v7
+        if: env.NODERINGS_TOKEN != ''
+        with:
+          python-version: "3.13"
+      - name: Install ansible-core
+        if: env.NODERINGS_TOKEN != ''
+        run: pip install ansible-core
+      - name: Write integration config
+        if: env.NODERINGS_TOKEN != ''
+        working-directory: ansible_collections/noderings/cloud
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def yq(value):
+              return json.dumps(value, ensure_ascii=False)
+
+          token = os.environ["NODERINGS_TOKEN"]
+          domain = (
+              os.environ.get("NODERINGS_TEST_DOMAIN")
+              or os.environ.get("NODERINGS_ACC_DOMAIN")
+              or "example.com"
+          )
+          lines = [
+              "noderings_api_token: " + yq(token),
+              "noderings_test_domain: " + yq(domain),
+          ]
+          sa = os.environ.get("NODERINGS_TEST_SERVICE_ACCOUNT") or ""
+          if sa:
+              lines.append("noderings_test_service_account: " + yq(sa))
+          path = Path("tests/integration/integration_config.yml")
+          path.write_text("\n".join(lines) + "\n")
+          PY
+      - name: ansible-test integration noderings/free/
+        if: env.NODERINGS_TOKEN != ''
+        working-directory: ansible_collections/noderings/cloud
+        env:
+          ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}
+        run: ansible-test integration noderings/free/ --allow-unsupported --venv --color yes -v
