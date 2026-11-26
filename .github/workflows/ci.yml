@@ -40,6 +40,10 @@ jobs:
           - stable-2.22
           - devel
     steps:
+      # The org runner reuses its work directory, so a previous job's
+      # ansible_collections/ tree would make the action's checkout move fail.
+      - name: Empty the workspace
+        run: find "$GITHUB_WORKSPACE" -mindepth 1 -delete
       # The org runner has python3 but no `python`, which ansible-test-gh-action
       # calls before it sets up its own Python. GitHub-hosted images have both.
       - uses: actions/setup-python@v7
@@ -68,6 +72,10 @@ jobs:
           - stable-2.22
           - devel
     steps:
+      # The org runner reuses its work directory, so a previous job's
+      # ansible_collections/ tree would make the action's checkout move fail.
+      - name: Empty the workspace
+        run: find "$GITHUB_WORKSPACE" -mindepth 1 -delete
       # The org runner has python3 but no `python`, which ansible-test-gh-action
       # calls before it sets up its own Python. GitHub-hosted images have both.
       - uses: actions/setup-python@v7
