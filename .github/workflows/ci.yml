@@ -23,7 +23,8 @@ jobs:
     # `ansible-test sanity --docker`), so every Python version that each
     # ansible-core release supports is checked.
     name: Sanity (ansible-core ${{ matrix.ansible }})
-    runs-on: ubuntu-latest
+    # Pushes to main run on the org runner; pull requests and everything else stay GitHub-hosted.
+    runs-on: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -47,7 +48,8 @@ jobs:
 
   units:
     name: Units (ansible-core ${{ matrix.ansible }})
-    runs-on: ubuntu-latest
+    # Pushes to main run on the org runner; pull requests and everything else stay GitHub-hosted.
+    runs-on: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +71,8 @@ jobs:
 
   changelog:
     name: Changelog fragments
-    runs-on: ubuntu-latest
+    # Pushes to main run on the org runner; pull requests and everything else stay GitHub-hosted.
+    runs-on: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -81,7 +84,8 @@ jobs:
 
   docs:
     name: Documentation lint
-    runs-on: ubuntu-latest
+    # Pushes to main run on the org runner; pull requests and everything else stay GitHub-hosted.
+    runs-on: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -100,7 +104,8 @@ jobs:
     # Builds the tarball exactly as the release does and runs it through
     # galaxy-importer, the same checks Ansible Galaxy runs on upload.
     name: Build and Galaxy import check
-    runs-on: ubuntu-latest
+    # Pushes to main run on the org runner; pull requests and everything else stay GitHub-hosted.
+    runs-on: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && fromJSON('["self-hosted","linux","x64"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
