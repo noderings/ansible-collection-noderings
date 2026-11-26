@@ -4,6 +4,16 @@ NodeRings Collection Release Notes
 
 .. contents:: Topics
 
+v0.2.0
+======
+
+Minor Changes
+-------------
+
+- game_server - add the ``provider`` option, which limits the offers to one hosting provider given by its provider ID, storefront slug or name (case-insensitive).
+- marketplace_offer_info - add the ``provider`` option, which limits the offers to one hosting provider given by its provider ID, storefront slug or name (case-insensitive).
+- virtual_machine - add the ``provider`` option, which limits the offers to one hosting provider given by its provider ID, storefront slug or name (case-insensitive).
+
 v0.1.0
 ======
 
