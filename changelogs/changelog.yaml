@@ -136,3 +136,5 @@ releases:
     fragments:
     - provider-option.yml
     release_date: '2026-11-26'
+  0.2.1:
+    release_date: '2026-11-27'
