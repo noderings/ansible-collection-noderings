@@ -291,6 +291,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). This project follows the
 
 - [Using Ansible collections](https://docs.ansible.com/ansible/latest/collections_guide/index.html)
 - [NodeRings](https://noderings.com) and the [NodeRings documentation](https://docs.noderings.com)
+- [Go SDK](https://github.com/noderings/noderings-go) for using the NodeRings API from Go
 
 ## License
 
